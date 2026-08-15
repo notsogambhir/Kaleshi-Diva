@@ -1,1 +1,9 @@
 @import "tailwindcss";
+
+html,
+body {
+  overscroll-behavior: none;
+  touch-action: none;
+  background-color: #7dd3fc;
+  -webkit-tap-highlight-color: transparent;
+}
