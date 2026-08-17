@@ -20,7 +20,7 @@ No API key is required — the game is fully offline.
 **Prerequisites:**
 
 - Node.js
-- JDK 17+ (`JAVA_HOME` set)
+- JDK 21 (Capacitor 8 requires it — `android/gradle.properties` pins `org.gradle.java.home` to Android Studio's bundled JDK; adjust that path if Android Studio lives elsewhere)
 - Android SDK (via Android Studio), with `ANDROID_HOME` set or `android/local.properties` pointing to it
 
 **Build a debug APK (for sideloading on your phone):**
