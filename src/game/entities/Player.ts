@@ -429,10 +429,7 @@ export class Player {
       this.rightArm.rotation.x = 0;
     } else if (this.isJumping) {
       this.simPosition.y += this.jumpVelocity * (dt * 60);
-
-      let currentGravity = JUMP_GRAVITY;
-      if (Math.abs(this.jumpVelocity) < 0.1) currentGravity *= 0.6;
-      this.jumpVelocity += currentGravity * (dt * 60);
+      this.jumpVelocity += JUMP_GRAVITY * (dt * 60);
 
       if (this.simPosition.y <= 0) {
         this.simPosition.y = 0;
@@ -459,13 +456,17 @@ export class Player {
         this.simPosition.y = 0;
       }
 
-      const t = simTime * (this.isMounted ? 16 : 12);
-      this.leftLeg.rotation.x = Math.sin(t) * 0.65;
-      this.rightLeg.rotation.x = Math.sin(t + Math.PI) * 0.65;
-      this.leftArm.rotation.x = Math.sin(t + Math.PI) * 0.65;
-      this.rightArm.rotation.x = Math.sin(t) * 0.65;
-
       if (this.isMounted) {
+        // Seated gripping riding pose
+        const t = simTime * 16;
+        this.leftLeg.rotation.x = 0.55;
+        this.leftLeg.rotation.z = -0.25;
+        this.rightLeg.rotation.x = 0.55;
+        this.rightLeg.rotation.z = 0.25;
+        this.leftArm.rotation.x = 0.45;
+        this.rightArm.rotation.x = 0.45;
+        this.bodyGroup.position.y = Math.sin(t) * 0.04;
+
         const dInfo = this.dinoMountGroup.userData as {
           legFL?: THREE.Mesh;
           legFR?: THREE.Mesh;
@@ -480,6 +481,17 @@ export class Player {
           if (dInfo.legBL) dInfo.legBL.rotation.x = Math.sin(t + Math.PI) * 0.6;
           if (dInfo.tail) dInfo.tail.rotation.y = Math.sin(t * 0.5) * 0.3;
         }
+      } else {
+        // Standard running stride pose
+        this.leftLeg.rotation.z = 0;
+        this.rightLeg.rotation.z = 0;
+        this.bodyGroup.position.y = 0;
+
+        const t = simTime * 12;
+        this.leftLeg.rotation.x = Math.sin(t) * 0.65;
+        this.rightLeg.rotation.x = Math.sin(t + Math.PI) * 0.65;
+        this.leftArm.rotation.x = Math.sin(t + Math.PI) * 0.65;
+        this.rightArm.rotation.x = Math.sin(t) * 0.65;
       }
     }
 

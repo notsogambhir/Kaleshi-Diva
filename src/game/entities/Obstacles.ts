@@ -40,8 +40,10 @@ export class ObstacleManager {
   private endCapGeo: THREE.BoxGeometry;
   private barHighGeo: THREE.BoxGeometry;
   private dinoTailGeo: THREE.CylinderGeometry;
+  private dinoTailRingGeo: THREE.CylinderGeometry;
   private dinoPlateGeo: THREE.ConeGeometry;
   private dinoFrillGeo: THREE.TorusGeometry;
+  private dinoLegGeo: THREE.BoxGeometry;
 
   constructor(container: THREE.Object3D) {
     this.container = container;
@@ -101,8 +103,11 @@ export class ObstacleManager {
     this.endCapGeo = new THREE.BoxGeometry(0.18, 0.5, 0.18);
     this.barHighGeo = new THREE.BoxGeometry(2.6, 0.6, 0.15);
     this.dinoTailGeo = new THREE.CylinderGeometry(0.2, 0.45, 2.6, 8);
+    this.dinoTailRingGeo = new THREE.CylinderGeometry(0.36, 0.36, 0.15, 8);
     this.dinoPlateGeo = new THREE.ConeGeometry(0.25, 0.5, 4);
     this.dinoFrillGeo = new THREE.TorusGeometry(1.3, 0.25, 8, 16, Math.PI);
+    // Legs span y=0..2.0 so the arch ends meet the ground instead of floating
+    this.dinoLegGeo = new THREE.BoxGeometry(0.3, 2.0, 0.3);
 
     this.pool = new ObjectPool<THREE.Group>(
       () => new THREE.Group(),
@@ -196,6 +201,15 @@ export class ObstacleManager {
       tail.castShadow = true;
       group.add(tail);
 
+      // Amber hazard rings across the tail body for clear JUMP readability
+      for (let r = 0; r < 3; r++) {
+        const ring = new THREE.Mesh(this.dinoTailRingGeo, this.amberCapMat);
+        ring.rotation.z = Math.PI / 2;
+        ring.position.set((r - 1) * 0.75, 0.4, 0);
+        ring.castShadow = true;
+        group.add(ring);
+      }
+
       for (let p = 0; p < 4; p++) {
         const plate = new THREE.Mesh(this.dinoPlateGeo, this.dinoJumpPlateMat);
         plate.position.set((p - 1.5) * 0.6, 0.7, 0);
@@ -207,6 +221,18 @@ export class ObstacleManager {
       frill.position.set(0, 2.0, 0);
       frill.castShadow = true;
       group.add(frill);
+
+      // Grounded legs: the torus arc ends at local y=0, so without these the
+      // arch hangs 2 units above the track and reads as floating at distance.
+      const legL = new THREE.Mesh(this.dinoLegGeo, this.dinoSkinMat);
+      legL.position.set(-1.3, 1.0, 0);
+      legL.castShadow = true;
+
+      const legR = new THREE.Mesh(this.dinoLegGeo, this.dinoSkinMat);
+      legR.position.set(1.3, 1.0, 0);
+      legR.castShadow = true;
+
+      group.add(legL, legR);
     }
   }
 
@@ -259,7 +285,9 @@ export class ObstacleManager {
     this.endCapGeo.dispose();
     this.barHighGeo.dispose();
     this.dinoTailGeo.dispose();
+    this.dinoTailRingGeo.dispose();
     this.dinoPlateGeo.dispose();
     this.dinoFrillGeo.dispose();
+    this.dinoLegGeo.dispose();
   }
 }

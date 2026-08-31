@@ -18,6 +18,9 @@ export interface BiomeConfig {
   ambientIntensity: number;
   directionalColor: number;
   directionalIntensity: number;
+  hemiSkyColor: number;
+  hemiGroundColor: number;
+  hemiIntensity: number;
 }
 
 export const BIOMES: Record<BiomeType, BiomeConfig> = {
@@ -37,6 +40,9 @@ export const BIOMES: Record<BiomeType, BiomeConfig> = {
     ambientIntensity: 0.85,
     directionalColor: 0xfffbeb,
     directionalIntensity: 0.85,
+    hemiSkyColor: 0x90caf9,
+    hemiGroundColor: 0xffe0b2,
+    hemiIntensity: 0.4,
   },
   lake: {
     id: "lake",
@@ -54,6 +60,9 @@ export const BIOMES: Record<BiomeType, BiomeConfig> = {
     ambientIntensity: 0.85,
     directionalColor: 0xffffff,
     directionalIntensity: 0.8,
+    hemiSkyColor: 0xb3e5fc,
+    hemiGroundColor: 0x81d4fa,
+    hemiIntensity: 0.45,
   },
   sunset: {
     id: "sunset",
@@ -71,6 +80,9 @@ export const BIOMES: Record<BiomeType, BiomeConfig> = {
     ambientIntensity: 0.85,
     directionalColor: 0xffb74d,
     directionalIntensity: 0.9,
+    hemiSkyColor: 0xff8a65,
+    hemiGroundColor: 0x8d4f2a,
+    hemiIntensity: 0.4,
   },
   dino: {
     id: "dino",
@@ -88,6 +100,9 @@ export const BIOMES: Record<BiomeType, BiomeConfig> = {
     ambientIntensity: 0.85,
     directionalColor: 0xff8a65,
     directionalIntensity: 0.9,
+    hemiSkyColor: 0xd84315,
+    hemiGroundColor: 0x5d4037,
+    hemiIntensity: 0.45,
   },
 };
 

@@ -73,13 +73,15 @@ export class PowerupManager {
     this.greenDinoMat = registerCurvedMaterial(new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.6 }));
     this.amberDinoMat = registerCurvedMaterial(new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.4 }));
 
-    this.glowSpriteMat = new THREE.SpriteMaterial({
-      map: TextureGenerator.getTexture("glow_radial"),
-      blending: THREE.AdditiveBlending,
-      color: 0xffffff,
-      transparent: true,
-      opacity: 0.5,
-    });
+    this.glowSpriteMat = registerCurvedMaterial(
+      new THREE.SpriteMaterial({
+        map: TextureGenerator.getTexture("glow_radial"),
+        blending: THREE.AdditiveBlending,
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.5,
+      })
+    );
 
     this.chainGeo = new THREE.TorusGeometry(0.2, 0.015, 8, 24);
     this.beadGeo = new THREE.SphereGeometry(0.045, 8, 8);

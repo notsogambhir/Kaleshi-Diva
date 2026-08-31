@@ -47,13 +47,15 @@ export class CollectibleManager {
     );
     this.leafMat = registerCurvedMaterial(new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.7 }));
 
-    this.glowSpriteMat = new THREE.SpriteMaterial({
-      map: TextureGenerator.getTexture("glow_radial"),
-      blending: THREE.AdditiveBlending,
-      color: 0xffcc00,
-      transparent: true,
-      opacity: 0.65,
-    });
+    this.glowSpriteMat = registerCurvedMaterial(
+      new THREE.SpriteMaterial({
+        map: TextureGenerator.getTexture("glow_radial"),
+        blending: THREE.AdditiveBlending,
+        color: 0xffcc00,
+        transparent: true,
+        opacity: 0.65,
+      })
+    );
 
     this.headGeo = new THREE.CylinderGeometry(0.25, 0.25, 0.1, 16);
     this.petalGeo = new THREE.SphereGeometry(0.14, 8, 8);

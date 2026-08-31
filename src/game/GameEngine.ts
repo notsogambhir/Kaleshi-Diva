@@ -187,18 +187,18 @@ export class GameEngine {
     this.scene.add(this.hemiLight);
 
     this.dirLight = new THREE.DirectionalLight(0xfffbeb, 0.85);
-    this.dirLight.position.set(20, 35, 20);
+    this.dirLight.position.set(12, 24, 12);
 
     if (this.quality.shadowsEnabled) {
       this.dirLight.castShadow = true;
       this.dirLight.shadow.mapSize.width = this.quality.shadowMapSize;
       this.dirLight.shadow.mapSize.height = this.quality.shadowMapSize;
-      this.dirLight.shadow.camera.left = -20;
-      this.dirLight.shadow.camera.right = 20;
-      this.dirLight.shadow.camera.top = 25;
-      this.dirLight.shadow.camera.bottom = -20;
-      this.dirLight.shadow.camera.near = 0.5;
-      this.dirLight.shadow.camera.far = 120;
+      this.dirLight.shadow.camera.left = -8;
+      this.dirLight.shadow.camera.right = 8;
+      this.dirLight.shadow.camera.top = 10;
+      this.dirLight.shadow.camera.bottom = -10;
+      this.dirLight.shadow.camera.near = 8;
+      this.dirLight.shadow.camera.far = 55;
       this.dirLight.shadow.bias = -0.0004;
     }
     this.scene.add(this.dirLight);
@@ -458,6 +458,9 @@ export class GameEngine {
     this.ambientLight.intensity = config.ambientIntensity;
     this.dirLight.color.setHex(config.directionalColor);
     this.dirLight.intensity = config.directionalIntensity;
+    this.hemiLight.color.setHex(config.hemiSkyColor);
+    this.hemiLight.groundColor.setHex(config.hemiGroundColor);
+    this.hemiLight.intensity = config.hemiIntensity;
   }
 
   private updateBiomeCrossFade(dt: number): void {
@@ -486,6 +489,16 @@ export class GameEngine {
     const dirTo = new THREE.Color(toCfg.directionalColor);
     this.dirLight.color.copy(dirFrom.lerp(dirTo, p));
     this.dirLight.intensity = THREE.MathUtils.lerp(fromCfg.directionalIntensity, toCfg.directionalIntensity, p);
+
+    const hemiSkyFrom = new THREE.Color(fromCfg.hemiSkyColor);
+    const hemiSkyTo = new THREE.Color(toCfg.hemiSkyColor);
+    this.hemiLight.color.copy(hemiSkyFrom.lerp(hemiSkyTo, p));
+
+    const hemiGndFrom = new THREE.Color(fromCfg.hemiGroundColor);
+    const hemiGndTo = new THREE.Color(toCfg.hemiGroundColor);
+    this.hemiLight.groundColor.copy(hemiGndFrom.lerp(hemiGndTo, p));
+
+    this.hemiLight.intensity = THREE.MathUtils.lerp(fromCfg.hemiIntensity, toCfg.hemiIntensity, p);
 
     if (p >= 1.0) {
       this.currentBiome = this.targetBiome;
