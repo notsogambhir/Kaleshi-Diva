@@ -10,7 +10,7 @@
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
     "android": "vite build && cap sync android && cap open android",
-    "android:apk": "vite build && cap sync android && cd android && gradlew assembleDebug"
+    "android:apk": "vite build && cap sync android && cd android && gradlew.bat assembleDebug"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",

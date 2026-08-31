@@ -22,7 +22,8 @@ export type TextureType =
   | "obstacle_duck_arch"
   | "bump_road_asphalt"
   | "bump_road_wood"
-  | "bump_road_stone";
+  | "bump_road_stone"
+  | "macro_noise";
 
 export class TextureGenerator {
   private static cache: Map<string, THREE.Texture> = new Map();
@@ -70,6 +71,7 @@ export class TextureGenerator {
       "rose",
       "wood",
       "leaf",
+      "macro_noise",
     ];
 
     for (let i = 0; i < allTypes.length; i++) {
@@ -81,6 +83,36 @@ export class TextureGenerator {
       // Yield to main thread
       await new Promise((resolve) => setTimeout(resolve, 16));
     }
+  }
+
+  /**
+   * Helper that invokes drawFn at (x, y) and any boundary wrap positions (x ± sz, y ± sz)
+   * if the shape's bounding radius touches or crosses any canvas edges.
+   */
+  private static drawWrapped(
+    _cx: CanvasRenderingContext2D,
+    sz: number,
+    x: number,
+    y: number,
+    radius: number,
+    drawFn: (px: number, py: number) => void
+  ): void {
+    drawFn(x, y);
+
+    const crossesLeft = x - radius < 0;
+    const crossesRight = x + radius > sz;
+    const crossesTop = y - radius < 0;
+    const crossesBottom = y + radius > sz;
+
+    if (crossesLeft) drawFn(x + sz, y);
+    if (crossesRight) drawFn(x - sz, y);
+    if (crossesTop) drawFn(x, y + sz);
+    if (crossesBottom) drawFn(x, y - sz);
+
+    if (crossesLeft && crossesTop) drawFn(x + sz, y + sz);
+    if (crossesLeft && crossesBottom) drawFn(x + sz, y - sz);
+    if (crossesRight && crossesTop) drawFn(x - sz, y + sz);
+    if (crossesRight && crossesBottom) drawFn(x - sz, y - sz);
   }
 
   public static createTexture(type: TextureType): THREE.Texture {
@@ -100,6 +132,28 @@ export class TextureGenerator {
       grad.addColorStop(1, "rgba(255, 120, 0, 0)");
       cx.fillStyle = grad;
       cx.fillRect(0, 0, sz, sz);
+    } else if (type === "macro_noise") {
+      // Very low frequency value noise texture to break repeating grid across distant tiles
+      const imgData = cx.createImageData(sz, sz);
+      const data = imgData.data;
+      for (let y = 0; y < sz; y++) {
+        for (let x = 0; x < sz; x++) {
+          const nx = (x / sz) * 4;
+          const ny = (y / sz) * 4;
+          const val =
+            Math.sin(nx * Math.PI * 2) * 0.3 +
+            Math.cos(ny * Math.PI * 2) * 0.3 +
+            Math.sin((nx + ny) * Math.PI) * 0.2 +
+            0.5;
+          const byteVal = Math.floor(Math.max(0, Math.min(1, val)) * 255);
+          const idx = (y * sz + x) * 4;
+          data[idx] = byteVal;
+          data[idx + 1] = byteVal;
+          data[idx + 2] = byteVal;
+          data[idx + 3] = 255;
+        }
+      }
+      cx.putImageData(imgData, 0, 0);
     } else if (type === "obstacle_chevron") {
       // High-contrast Jump Bar: Crisp white body with black and amber chevron stripes
       cx.fillStyle = "#ffffff";
@@ -150,7 +204,11 @@ export class TextureGenerator {
       for (let i = 0; i < dots; i++) {
         const val = Math.floor(Math.random() * 40 + 110);
         cx.fillStyle = `rgb(${val},${val},${val})`;
-        cx.fillRect(Math.random() * sz, Math.random() * sz, 3 * scale, 3 * scale);
+        const px = Math.random() * sz;
+        const py = Math.random() * sz;
+        this.drawWrapped(cx, sz, px, py, 3 * scale, (dx, dy) => {
+          cx.fillRect(dx, dy, 3 * scale, 3 * scale);
+        });
       }
     } else if (type === "bump_road_wood") {
       cx.fillStyle = "#808080";
@@ -176,120 +234,143 @@ export class TextureGenerator {
         }
       }
     } else if (type === "grass") {
-      // Vibrant clean lawn gradient
-      const center = sz / 2;
-      const grad = cx.createRadialGradient(center, center, 0, center, center, center * 1.3);
-      grad.addColorStop(0, "#4caf50");
-      grad.addColorStop(0.7, "#388e3c");
-      grad.addColorStop(1, "#2e7d32");
-      cx.fillStyle = grad;
+      // Seamless uniform lawn base (NO centered radial gradient to avoid 200-cell vignette grid)
+      cx.fillStyle = "#388e3c";
       cx.fillRect(0, 0, sz, sz);
 
-      // Stylized grass blade clusters
-      const clusterCount = Math.floor(60 * scale * scale);
+      // Subtle seamless micro-variation speckles
+      const speckleCount = Math.floor(250 * scale * scale);
+      for (let i = 0; i < speckleCount; i++) {
+        const sx = Math.random() * sz;
+        const sy = Math.random() * sz;
+        cx.fillStyle = Math.random() > 0.5 ? "#2e7d32" : "#43a047";
+        this.drawWrapped(cx, sz, sx, sy, 8 * scale, (dx, dy) => {
+          cx.beginPath();
+          cx.arc(dx, dy, 6 * scale, 0, Math.PI * 2);
+          cx.fill();
+        });
+      }
+
+      // Stylized grass blade clusters with wrapped drawing
+      const clusterCount = Math.floor(70 * scale * scale);
       for (let i = 0; i < clusterCount; i++) {
         const cxPos = Math.random() * sz;
         const cyPos = Math.random() * sz;
-        cx.fillStyle = Math.random() > 0.4 ? "#81c784" : "#a5d6a7";
-        for (let b = -2; b <= 2; b++) {
-          cx.beginPath();
-          cx.ellipse(cxPos + b * 4 * scale, cyPos, 2 * scale, 9 * scale, b * 0.2, 0, Math.PI * 2);
-          cx.fill();
-        }
+        const col = Math.random() > 0.4 ? "#81c784" : "#a5d6a7";
+        this.drawWrapped(cx, sz, cxPos, cyPos, 14 * scale, (dx, dy) => {
+          cx.fillStyle = col;
+          for (let b = -2; b <= 2; b++) {
+            cx.beginPath();
+            cx.ellipse(dx + b * 4 * scale, dy, 2 * scale, 9 * scale, b * 0.2, 0, Math.PI * 2);
+            cx.fill();
+          }
+        });
       }
 
-      // Clustered tiny joyful daisy dots
+      // Clustered tiny joyful daisy dots with wrapped drawing
       const flowerClusters = Math.floor(18 * scale * scale);
       for (let i = 0; i < flowerClusters; i++) {
         const fx = Math.random() * sz;
         const fy = Math.random() * sz;
-        cx.fillStyle = "#ffffff";
-        for (let p = 0; p < 5; p++) {
-          const ang = (p / 5) * Math.PI * 2;
+        this.drawWrapped(cx, sz, fx, fy, 10 * scale, (dx, dy) => {
+          cx.fillStyle = "#ffffff";
+          for (let p = 0; p < 5; p++) {
+            const ang = (p / 5) * Math.PI * 2;
+            cx.beginPath();
+            cx.arc(dx + Math.cos(ang) * 4 * scale, dy + Math.sin(ang) * 4 * scale, 2.5 * scale, 0, Math.PI * 2);
+            cx.fill();
+          }
+          cx.fillStyle = "#fbc02d";
           cx.beginPath();
-          cx.arc(fx + Math.cos(ang) * 4 * scale, fy + Math.sin(ang) * 4 * scale, 2.5 * scale, 0, Math.PI * 2);
+          cx.arc(dx, dy, 2.5 * scale, 0, Math.PI * 2);
           cx.fill();
-        }
-        cx.fillStyle = "#fbc02d";
-        cx.beginPath();
-        cx.arc(fx, fy, 2.5 * scale, 0, Math.PI * 2);
-        cx.fill();
+        });
       }
     } else if (type === "water") {
-      // Vibrant crystal lake gradient
-      const grad = cx.createLinearGradient(0, 0, 0, sz);
-      grad.addColorStop(0, "#00b4d8");
-      grad.addColorStop(0.5, "#0096c7");
-      grad.addColorStop(1, "#0077b6");
-      cx.fillStyle = grad;
+      // Seamless crystal lake base (uniform base tone with subtle depth, no linear vertical banding)
+      cx.fillStyle = "#0096c7";
       cx.fillRect(0, 0, sz, sz);
 
-      // Stylized rounded ripple bars
+      // Stylized rounded ripple bars with wrapped drawing
       const rippleRows = Math.floor(24 * scale * scale);
       for (let i = 0; i < rippleRows; i++) {
-        cx.fillStyle = i % 2 === 0 ? "rgba(202, 240, 248, 0.4)" : "rgba(144, 224, 239, 0.3)";
-        const rx = (Math.random() * 0.8) * sz;
-        const ry = (i / rippleRows) * sz + (Math.random() - 0.5) * 15 * scale;
+        const col = i % 2 === 0 ? "rgba(202, 240, 248, 0.4)" : "rgba(144, 224, 239, 0.3)";
+        const rx = Math.random() * sz;
+        const ry = (i / rippleRows) * sz;
         const rw = (40 + Math.random() * 60) * scale;
         const rh = 4 * scale;
-        cx.beginPath();
-        cx.roundRect(rx, ry, rw, rh, 2);
-        cx.fill();
+        this.drawWrapped(cx, sz, rx, ry, rw, (dx, dy) => {
+          cx.fillStyle = col;
+          cx.beginPath();
+          cx.roundRect(dx, dy, rw, rh, 2);
+          cx.fill();
+        });
       }
     } else if (type === "jungle") {
-      // Lush tropical canopy
-      const grad = cx.createLinearGradient(0, 0, 0, sz);
-      grad.addColorStop(0, "#2d6a4f");
-      grad.addColorStop(0.5, "#1b4332");
-      grad.addColorStop(1, "#081c15");
-      cx.fillStyle = grad;
+      // Seamless lush tropical canopy (no vertical linear gradient)
+      cx.fillStyle = "#1b4332";
       cx.fillRect(0, 0, sz, sz);
 
-      // Stylized leaf clusters
-      const leafClusters = Math.floor(40 * scale * scale);
+      // Stylized leaf clusters with wrapped drawing
+      const leafClusters = Math.floor(45 * scale * scale);
       for (let i = 0; i < leafClusters; i++) {
         const lx = Math.random() * sz;
         const ly = Math.random() * sz;
-        cx.fillStyle = Math.random() > 0.5 ? "#40916c" : "#52b788";
-        for (let l = 0; l < 4; l++) {
-          const ang = (l / 4) * Math.PI * 2;
-          cx.beginPath();
-          cx.ellipse(lx + Math.cos(ang) * 12 * scale, ly + Math.sin(ang) * 12 * scale, 6 * scale, 14 * scale, ang, 0, Math.PI * 2);
-          cx.fill();
-        }
+        const col = Math.random() > 0.5 ? "#40916c" : "#52b788";
+        this.drawWrapped(cx, sz, lx, ly, 25 * scale, (dx, dy) => {
+          cx.fillStyle = col;
+          for (let l = 0; l < 4; l++) {
+            const ang = (l / 4) * Math.PI * 2;
+            cx.beginPath();
+            cx.ellipse(dx + Math.cos(ang) * 12 * scale, dy + Math.sin(ang) * 12 * scale, 6 * scale, 14 * scale, ang, 0, Math.PI * 2);
+            cx.fill();
+          }
+        });
       }
     } else if (type === "dino_ground") {
-      // Warm prehistoric terrain
-      const grad = cx.createLinearGradient(0, 0, 0, sz);
-      grad.addColorStop(0, "#854d0e");
-      grad.addColorStop(0.5, "#713f12");
-      grad.addColorStop(1, "#451a03");
-      cx.fillStyle = grad;
+      // Seamless prehistoric terrain
+      cx.fillStyle = "#713f12";
       cx.fillRect(0, 0, sz, sz);
 
-      // Stylized cracked earth lines
-      cx.strokeStyle = "rgba(40, 15, 5, 0.6)";
-      cx.lineWidth = 3 * scale;
-      for (let i = 0; i < 18; i++) {
-        let x = Math.random() * sz;
-        let y = Math.random() * sz;
-        cx.beginPath();
-        cx.moveTo(x, y);
+      // Stylized cracked earth lines with wrapped drawing
+      const crackCount = 18;
+      for (let i = 0; i < crackCount; i++) {
+        const startX = Math.random() * sz;
+        const startY = Math.random() * sz;
+        const segments: { dx: number; dy: number }[] = [];
+        let currX = 0;
+        let currY = 0;
         for (let seg = 0; seg < 4; seg++) {
-          x += (Math.random() - 0.5) * 80 * scale;
-          y += (Math.random() - 0.5) * 80 * scale;
-          cx.lineTo(x, y);
+          currX += (Math.random() - 0.5) * 80 * scale;
+          currY += (Math.random() - 0.5) * 80 * scale;
+          segments.push({ dx: currX, dy: currY });
         }
-        cx.stroke();
+
+        this.drawWrapped(cx, sz, startX, startY, 90 * scale, (ox, oy) => {
+          cx.strokeStyle = "rgba(40, 15, 5, 0.6)";
+          cx.lineWidth = 3 * scale;
+          cx.beginPath();
+          cx.moveTo(ox, oy);
+          for (const s of segments) {
+            cx.lineTo(ox + s.dx, oy + s.dy);
+          }
+          cx.stroke();
+        });
       }
 
-      // Warm ochre gravel patches
-      const gravels = Math.floor(25 * scale * scale);
+      // Warm ochre gravel patches with wrapped drawing
+      const gravels = Math.floor(30 * scale * scale);
       for (let i = 0; i < gravels; i++) {
-        cx.fillStyle = Math.random() > 0.5 ? "#a16207" : "#ca8a04";
-        cx.beginPath();
-        cx.ellipse(Math.random() * sz, Math.random() * sz, 6 * scale, 4 * scale, Math.random() * Math.PI, 0, Math.PI * 2);
-        cx.fill();
+        const gx = Math.random() * sz;
+        const gy = Math.random() * sz;
+        const col = Math.random() > 0.5 ? "#a16207" : "#ca8a04";
+        const rot = Math.random() * Math.PI;
+        this.drawWrapped(cx, sz, gx, gy, 8 * scale, (dx, dy) => {
+          cx.fillStyle = col;
+          cx.beginPath();
+          cx.ellipse(dx, dy, 6 * scale, 4 * scale, rot, 0, Math.PI * 2);
+          cx.fill();
+        });
       }
     } else if (type === "sky_sunset") {
       const grad = cx.createLinearGradient(0, 0, 0, sz);
@@ -386,12 +467,18 @@ export class TextureGenerator {
         cx.fillRect(laneW * i + laneW / 2 - 25 * scale, 0, 50 * scale, sz);
       }
 
-      // Smooth pebble clusters
-      for (let i = 0; i < 30; i++) {
-        cx.fillStyle = Math.random() > 0.5 ? "rgba(93, 64, 55, 0.7)" : "rgba(141, 110, 99, 0.6)";
-        cx.beginPath();
-        cx.ellipse(Math.random() * sz, Math.random() * sz, 5 * scale, 3 * scale, Math.random() * Math.PI, 0, Math.PI * 2);
-        cx.fill();
+      // Smooth pebble clusters with wrapped drawing
+      for (let i = 0; i < 35; i++) {
+        const px = Math.random() * sz;
+        const py = Math.random() * sz;
+        const col = Math.random() > 0.5 ? "rgba(93, 64, 55, 0.7)" : "rgba(141, 110, 99, 0.6)";
+        const rot = Math.random() * Math.PI;
+        this.drawWrapped(cx, sz, px, py, 6 * scale, (dx, dy) => {
+          cx.fillStyle = col;
+          cx.beginPath();
+          cx.ellipse(dx, dy, 5 * scale, 3 * scale, rot, 0, Math.PI * 2);
+          cx.fill();
+        });
       }
     } else if (type === "road_stone") {
       // Stylized Stone Flagstones
@@ -419,18 +506,25 @@ export class TextureGenerator {
         const y = Math.random() * sz;
         const w = (35 + Math.random() * 35) * scale;
         const h = (25 + Math.random() * 25) * scale;
-        cx.fillStyle = Math.random() > 0.5 ? "#9e9e9e" : "#616161";
-        cx.fillRect(x, y, w, h);
-        cx.strokeRect(x, y, w, h);
+        const col = Math.random() > 0.5 ? "#9e9e9e" : "#616161";
+        this.drawWrapped(cx, sz, x, y, Math.max(w, h), (dx, dy) => {
+          cx.fillStyle = col;
+          cx.fillRect(dx, dy, w, h);
+          cx.strokeRect(dx, dy, w, h);
+        });
       }
     } else if (type === "rose") {
       cx.fillStyle = "#2e7d32";
       cx.fillRect(0, 0, sz, sz);
       cx.fillStyle = "#e11d48";
       for (let i = 0; i < 50; i++) {
-        cx.beginPath();
-        cx.arc(Math.random() * sz, Math.random() * sz, 10 * scale, 0, Math.PI * 2);
-        cx.fill();
+        const rx = Math.random() * sz;
+        const ry = Math.random() * sz;
+        this.drawWrapped(cx, sz, rx, ry, 12 * scale, (dx, dy) => {
+          cx.beginPath();
+          cx.arc(dx, dy, 10 * scale, 0, Math.PI * 2);
+          cx.fill();
+        });
       }
     } else if (type === "dress") {
       cx.fillStyle = "#ffd54f";
@@ -459,7 +553,13 @@ export class TextureGenerator {
       cx.fillStyle = "#2e7d32";
       cx.fillRect(0, 0, sz, sz);
       cx.fillStyle = "#1b5e20";
-      for (let i = 0; i < 40; i++) cx.fillRect(Math.random() * sz, Math.random() * sz, 10 * scale, 10 * scale);
+      for (let i = 0; i < 40; i++) {
+        const lx = Math.random() * sz;
+        const ly = Math.random() * sz;
+        this.drawWrapped(cx, sz, lx, ly, 12 * scale, (dx, dy) => {
+          cx.fillRect(dx, dy, 10 * scale, 10 * scale);
+        });
+      }
     }
 
     const tex = new THREE.CanvasTexture(cvs);

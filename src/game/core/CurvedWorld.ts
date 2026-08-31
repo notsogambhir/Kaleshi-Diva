@@ -41,7 +41,13 @@ export function applyCurvedWorld(material: THREE.Material): void {
     return;
   }
 
-  material.onBeforeCompile = (shader) => {
+  const prevOnBeforeCompile = material.onBeforeCompile;
+  material.onBeforeCompile = (shader, renderer) => {
+    if (typeof prevOnBeforeCompile === "function") {
+      try {
+        prevOnBeforeCompile.call(material, shader, renderer);
+      } catch {}
+    }
     shader.vertexShader = shader.vertexShader.replace(
       "#include <project_vertex>",
       `
@@ -59,7 +65,6 @@ export function applyCurvedWorld(material: THREE.Material): void {
       `
     );
   };
-  // Ensure Three.js does not share shader program between curved and uncurved variants
   material.customProgramCacheKey = () => "curved_v1";
 }
 

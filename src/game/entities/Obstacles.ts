@@ -3,6 +3,7 @@ import { registerCurvedMaterial } from "../core/CurvedWorld";
 import { ObjectPool } from "../core/Pool";
 import { TextureGenerator } from "../TextureGenerator";
 import { BiomeType } from "../world/Biomes";
+import { SpikeManager } from "../dev/SpikeManager";
 
 export type ObstacleType = "low" | "high" | "dino_low" | "dino_high";
 
@@ -179,6 +180,10 @@ export class ObstacleManager {
       capR.castShadow = true;
 
       group.add(postL, postR, bar, capL, capR);
+
+      if (SpikeManager.isToonSpikeEnabled()) {
+        SpikeManager.applyObstacleToonSpike(group);
+      }
     } else if (type === "high") {
       const mat = biome === "lake" ? this.rockMat : this.woodMat;
       const postL = new THREE.Mesh(this.postHighGeo, mat);
