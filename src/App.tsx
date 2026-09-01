@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { GameEngine } from "./game/GameEngine";
 import { GameUI } from "./components/GameUI";
 import { MilestoneToast } from "./components/MilestoneToast";
+import { BiomeBanner } from "./components/BiomeBanner";
+import { PursuerSpeechBubble, PursuerSpeechInfo } from "./components/PursuerSpeechBubble";
 import { StartScreen } from "./screens/StartScreen";
 import { GameOverScreen } from "./screens/GameOverScreen";
 import { LoadingScreen } from "./components/LoadingScreen";
@@ -10,6 +12,7 @@ import { PERSONAL_CONTENT, MilestoneNote } from "./content/personal";
 import { OutfitId } from "./game/entities/Player";
 import { TextureGenerator } from "./game/TextureGenerator";
 import { HapticsManager } from "./game/core/Haptics";
+import { BiomeType } from "./game/world/Biomes";
 
 type GameState = "START" | "PLAYING" | "GAME_OVER";
 
@@ -41,6 +44,8 @@ export default function App() {
 
   const [selectedOutfit, setSelectedOutfit] = useState<OutfitId>("sunflower");
   const [activeMilestone, setActiveMilestone] = useState<MilestoneNote | null>(null);
+  const [activeBiomeBanner, setActiveBiomeBanner] = useState<{ id: BiomeType; name: string } | null>(null);
+  const [pursuerSpeech, setPursuerSpeech] = useState<PursuerSpeechInfo | null>(null);
 
   const [powerups, setPowerups] = useState({
     shield: false,
@@ -116,6 +121,14 @@ export default function App() {
       setPowerups(updates);
     };
 
+    engine.onBiomeAnnounce = (id, name) => {
+      setActiveBiomeBanner({ id, name });
+    };
+
+    engine.onPursuerSpeechChange = (speech) => {
+      setPursuerSpeech(speech);
+    };
+
     engine.onGameOver = (finalScore, isNewHigh, finalDistance, finalMaxCombo, finalTopSpeed) => {
       setScore(finalScore);
       setIsNewHighScore(isNewHigh);
@@ -124,6 +137,7 @@ export default function App() {
       setMaxCombo(finalMaxCombo);
       setTopSpeed(finalTopSpeed);
       setIsPaused(false);
+      setPursuerSpeech(null);
       setGameState("GAME_OVER");
     };
 
@@ -141,6 +155,8 @@ export default function App() {
     setMaxCombo(0);
     setIsNewHighScore(false);
     setIsPaused(false);
+    setActiveBiomeBanner(null);
+    setPursuerSpeech(null);
     setPowerups({ shield: false, magnet: false, speed: false, dino: false });
     if (engineRef.current) {
       engineRef.current.setOutfit(selectedOutfit);
@@ -202,6 +218,10 @@ export default function App() {
     setActiveMilestone(null);
   }, []);
 
+  const handleDismissBiomeBanner = useCallback(() => {
+    setActiveBiomeBanner(null);
+  }, []);
+
   return (
     <div className="relative w-full h-screen overflow-hidden bg-sky-300 font-sans select-none touch-none">
       {/* Loading Screen during preloading */}
@@ -238,6 +258,15 @@ export default function App() {
           onChangeQuality={handleChangeQuality}
         />
       )}
+
+      {/* Biome Announcement Banner */}
+      <BiomeBanner
+        banner={activeBiomeBanner}
+        onDismiss={handleDismissBiomeBanner}
+      />
+
+      {/* Dynamic Screen-Space Pursuer Speech Bubble */}
+      <PursuerSpeechBubble speech={pursuerSpeech} engineRef={engineRef} />
 
       {/* Milestone Love Notes Toast */}
       <MilestoneToast

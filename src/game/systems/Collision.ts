@@ -3,8 +3,11 @@ import { ObstacleItem } from "../entities/Obstacles";
 import { SunflowerItem } from "../entities/Collectibles";
 import { PowerupItem } from "../entities/Powerups";
 
+export type ObstacleHitType = "none" | "head_on" | "side_impact";
+
 export interface CollisionResult {
   hitObstacleIndex: number;
+  hitType: ObstacleHitType;
   collectedSunflowers: number[];
   collectedPowerupIndex: number;
   nearMissObstacleIndex: number;
@@ -24,6 +27,7 @@ export class CollisionSystem {
   ): CollisionResult {
     const result: CollisionResult = {
       hitObstacleIndex: -1,
+      hitType: "none",
       collectedSunflowers: [],
       collectedPowerupIndex: -1,
       nearMissObstacleIndex: -1,
@@ -41,7 +45,7 @@ export class CollisionSystem {
     // 1. Obstacles (Swept AABB)
     for (let i = 0; i < obstacles.length; i++) {
       const obs = obstacles[i];
-      if (!obs.active) continue;
+      if (!obs.active || obs.sideHit) continue;
 
       const oX = obs.mesh.position.x;
       const oHalfW = obs.width / 2;
@@ -60,6 +64,19 @@ export class CollisionSystem {
         const hitY = pMaxY > obs.minY && pMinY < obs.maxY;
         if (hitY) {
           result.hitObstacleIndex = i;
+
+          // Determine if collision is a side impact or head-on impact
+          const isMovingTowardsObs =
+            (player.velocityX > 0.01 && pX < oX) ||
+            (player.velocityX < -0.01 && pX > oX);
+          const isOffsetFromLaneCenter = Math.abs(pX - oX) > 0.65;
+          const isFlankingZ = currentZ >= -0.2 && Math.abs(player.velocityX) > 0.005;
+
+          if (isMovingTowardsObs || isOffsetFromLaneCenter || isFlankingZ) {
+            result.hitType = "side_impact";
+          } else {
+            result.hitType = "head_on";
+          }
           break;
         } else if (!isInvincible && !obs.nearMissFired) {
           // Vertical Near-Miss: entered obstacle footprint and cleared it by ducking or jumping

@@ -26,9 +26,9 @@ export const PERSONAL_CONTENT = {
     },
     {
       id: "dino",
-      name: "Dino Explorer",
-      description: "Prehistoric emerald green adventure outfit",
-      icon: "🦖",
+      name: "Brachio Explorer",
+      description: "Prehistoric emerald green Brachiosaurus outfit",
+      icon: "🦕",
       unlockedAt: 50,
     },
   ] as OutfitOption[],
@@ -51,8 +51,8 @@ export const PERSONAL_CONTENT = {
     },
     {
       distance: 150,
-      title: "🦖 Dino Valley Conqueror!",
-      message: "Even the T-Rex is impressed by your speed! 🦕💛",
+      title: "🦕 Brachio Valley Conqueror!",
+      message: "Even the Brachiosaurus is impressed by your speed! 🦕💛",
     },
   ] as MilestoneNote[],
 

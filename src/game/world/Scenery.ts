@@ -6,6 +6,7 @@ import { BiomeType } from "./Biomes";
 
 export interface SceneryItem {
   mesh: THREE.Group;
+  archetype: string;
   biome: BiomeType;
   type: string;
   phase: number;
@@ -18,7 +19,7 @@ export interface SceneryItem {
 export class SceneryManager {
   private container: THREE.Object3D;
   public activeItems: SceneryItem[] = [];
-  private pool: ObjectPool<THREE.Group>;
+  private pools: Record<string, ObjectPool<THREE.Group>> = {};
 
   // Shared Materials
   private woodMat: THREE.MeshStandardMaterial;
@@ -125,17 +126,235 @@ export class SceneryManager {
     this.triceratopsFrillGeo = new THREE.CylinderGeometry(1.1, 1.1, 0.15, 10);
     this.triceratopsHornGeo = new THREE.ConeGeometry(0.12, 0.8, 6);
 
-    this.pool = new ObjectPool<THREE.Group>(
-      () => new THREE.Group(),
-      (group) => {
-        while (group.children.length > 0) {
-          group.remove(group.children[0]);
-        }
-        group.position.set(0, 0, 100);
-        group.rotation.set(0, 0, 0);
-      },
-      35
-    );
+    // Initialize Zero-Allocation Archetype Pools
+    this.initArchetypePools();
+  }
+
+  private initArchetypePools(): void {
+    const archetypes: Record<string, () => THREE.Group> = {
+      park_tree: () => this.buildParkTree(),
+      park_bush: () => this.buildParkBush(),
+      park_flowers: () => this.buildParkFlowers(),
+      lake_lily: () => this.buildLakeLily(),
+      lake_cattail: () => this.buildLakeCattail(),
+      sunset_tree: () => this.buildSunsetTree(),
+      sunset_fern: () => this.buildSunsetFern(),
+      dino_cycad: () => this.buildDinoCycad(),
+      dino_rock: () => this.buildDinoRock(),
+      dino_brachio: () => this.buildDinoBrachio(),
+      dino_triceratops: () => this.buildDinoTriceratops(),
+    };
+
+    for (const [key, factory] of Object.entries(archetypes)) {
+      this.pools[key] = new ObjectPool<THREE.Group>(
+        factory,
+        (group) => {
+          group.position.set(0, 0, 100);
+          group.rotation.set(0, 0, 0);
+        },
+        10
+      );
+    }
+  }
+
+  private buildParkTree(): THREE.Group {
+    const group = new THREE.Group();
+    const trunk = new THREE.Mesh(this.trunkGeo, this.woodMat);
+    trunk.position.y = 1;
+    trunk.castShadow = true;
+    group.add(trunk);
+
+    const leaf1 = new THREE.Mesh(this.canopyLargeGeo, this.leafMat);
+    leaf1.position.set(0, 2.4, 0);
+    leaf1.castShadow = true;
+    const leaf2 = new THREE.Mesh(this.canopyMedGeo, this.leafMat);
+    leaf2.position.set(0.5, 2.0, 0.4);
+    leaf2.castShadow = true;
+    const leaf3 = new THREE.Mesh(this.canopyMedGeo, this.leafMat);
+    leaf3.position.set(-0.5, 2.0, -0.4);
+    leaf3.castShadow = true;
+    group.add(leaf1, leaf2, leaf3);
+
+    for (let a = 0; a < 4; a++) {
+      const apple = new THREE.Mesh(this.appleGeo, this.redMat);
+      const angle = (a / 4) * Math.PI * 2;
+      apple.position.set(Math.cos(angle) * 0.7, 2.0 + (a % 2) * 0.4, Math.sin(angle) * 0.7);
+      group.add(apple);
+    }
+    return group;
+  }
+
+  private buildParkBush(): THREE.Group {
+    const group = new THREE.Group();
+    const b1 = new THREE.Mesh(this.bushGeo1, this.roseMat);
+    b1.position.y = 0.6;
+    b1.castShadow = true;
+    const b2 = new THREE.Mesh(this.bushGeo2, this.roseMat);
+    b2.position.set(0.5, 0.4, 0.2);
+    b2.castShadow = true;
+    group.add(b1, b2);
+    return group;
+  }
+
+  private buildParkFlowers(): THREE.Group {
+    const group = new THREE.Group();
+    for (let f = 0; f < 3; f++) {
+      const head = new THREE.Mesh(this.flowerHeadGeo, this.whiteMat);
+      head.position.set((f - 1) * 0.5, 0.35, (f % 2 === 0 ? 0.15 : -0.15));
+      const center = new THREE.Mesh(this.flowerCenterGeo, this.goldMat);
+      center.position.set((f - 1) * 0.5, 0.4, (f % 2 === 0 ? 0.15 : -0.15));
+      group.add(head, center);
+    }
+    return group;
+  }
+
+  private buildLakeLily(): THREE.Group {
+    const group = new THREE.Group();
+    const pad = new THREE.Mesh(this.waterPadGeo, this.leafMat);
+    pad.position.y = 0.05;
+    group.add(pad);
+
+    const flower = new THREE.Mesh(this.waterLotusGeo, this.roseMat);
+    flower.scale.set(1, 0.5, 1);
+    flower.position.set(0.15, 0.15, 0.15);
+    group.add(flower);
+    return group;
+  }
+
+  private buildLakeCattail(): THREE.Group {
+    const group = new THREE.Group();
+    for (let c = 0; c < 3; c++) {
+      const stem = new THREE.Mesh(this.cattailStemGeo, this.leafMat);
+      stem.position.set((c - 1) * 0.35, 0.9, (c % 2 === 0 ? 0.1 : -0.1));
+      const top = new THREE.Mesh(this.cattailTopGeo, this.flowerHeadMat);
+      top.position.set((c - 1) * 0.35, 1.5, (c % 2 === 0 ? 0.1 : -0.1));
+      group.add(stem, top);
+    }
+    return group;
+  }
+
+  private buildSunsetTree(): THREE.Group {
+    const group = new THREE.Group();
+    const trunk = new THREE.Mesh(this.jungleTrunkGeo, this.woodMat);
+    trunk.position.y = 2.5;
+    trunk.castShadow = true;
+    group.add(trunk);
+
+    const l1 = new THREE.Mesh(this.jungleCanopy1Geo, this.leafMat);
+    l1.position.set(0, 5.2, 0);
+    l1.scale.set(1, 0.6, 1);
+    l1.castShadow = true;
+    const l2 = new THREE.Mesh(this.jungleCanopy2Geo, this.leafMat);
+    l2.position.set(1.2, 4.4, 1.0);
+    l2.scale.set(1, 0.6, 1);
+    l2.castShadow = true;
+    group.add(l1, l2);
+    return group;
+  }
+
+  private buildSunsetFern(): THREE.Group {
+    const group = new THREE.Group();
+    for (let f = 0; f < 4; f++) {
+      const frond = new THREE.Mesh(this.fernFrondGeo, this.leafMat);
+      frond.position.y = 1.6;
+      frond.castShadow = true;
+      const pivot = new THREE.Group();
+      pivot.add(frond);
+      pivot.rotation.y = (f / 4) * Math.PI * 2;
+      pivot.rotation.x = Math.PI * 0.28;
+      group.add(pivot);
+    }
+    return group;
+  }
+
+  private buildDinoCycad(): THREE.Group {
+    const group = new THREE.Group();
+    const trunk = new THREE.Mesh(this.cycadTrunkGeo, this.woodMat);
+    trunk.position.y = 1.5;
+    trunk.castShadow = true;
+    group.add(trunk);
+
+    for (let i = 0; i < 5; i++) {
+      const frond = new THREE.Mesh(this.cycadFrondGeo, this.leafMat);
+      frond.position.y = 1.2;
+      const pivot = new THREE.Group();
+      pivot.add(frond);
+      pivot.position.y = 3.0;
+      pivot.rotation.y = (i / 5) * Math.PI * 2;
+      pivot.rotation.x = Math.PI * 0.35;
+      group.add(pivot);
+    }
+    return group;
+  }
+
+  private buildDinoRock(): THREE.Group {
+    const group = new THREE.Group();
+    const rock1 = new THREE.Mesh(this.rockLargeGeo, this.rockMat);
+    rock1.position.set(0, 0.8, 0);
+    rock1.scale.set(1.2, 0.8, 1.0);
+    rock1.castShadow = true;
+
+    const rock2 = new THREE.Mesh(this.rockMedGeo, this.rockMat);
+    rock2.position.set(0.8, 0.4, 0.4);
+    rock2.castShadow = true;
+
+    group.add(rock1, rock2);
+    return group;
+  }
+
+  private buildDinoBrachio(): THREE.Group {
+    const group = new THREE.Group();
+    const body = new THREE.Mesh(this.brachioBodyGeo, this.dinoMat);
+    body.position.y = 2.8;
+    body.castShadow = true;
+    group.add(body);
+
+    const neckGroup = new THREE.Group();
+    neckGroup.position.set(0, 3.2, 1.8);
+    neckGroup.rotation.x = -Math.PI * 0.18;
+
+    const neck = new THREE.Mesh(this.brachioNeckGeo, this.dinoMat);
+    neck.position.y = 2.75;
+    neckGroup.add(neck);
+
+    const head = new THREE.Mesh(this.brachioHeadGeo, this.dinoMat);
+    head.position.set(0, 5.5, 0.4);
+    neckGroup.add(head);
+
+    group.add(neckGroup);
+    group.userData = { neckGroup };
+
+    for (let i = 0; i < 4; i++) {
+      const leg = new THREE.Mesh(this.brachioLegGeo, this.dinoMat);
+      const lx = (i % 2 === 0 ? -1 : 1) * 0.9;
+      const lz = (i < 2 ? -1 : 1) * 1.2;
+      leg.position.set(lx, 1.4, lz);
+      leg.castShadow = true;
+      group.add(leg);
+    }
+    return group;
+  }
+
+  private buildDinoTriceratops(): THREE.Group {
+    const group = new THREE.Group();
+    const body = new THREE.Mesh(this.triceratopsBodyGeo, this.dinoMat);
+    body.position.y = 1.4;
+    body.castShadow = true;
+    group.add(body);
+
+    const frill = new THREE.Mesh(this.triceratopsFrillGeo, this.dinoMat);
+    frill.position.set(0, 2.0, 1.4);
+    frill.rotation.x = Math.PI * 0.35;
+    group.add(frill);
+
+    const horn1 = new THREE.Mesh(this.triceratopsHornGeo, this.dinoHornMat);
+    horn1.position.set(-0.4, 2.2, 1.7);
+    horn1.rotation.x = Math.PI * 0.4;
+    const horn2 = new THREE.Mesh(this.triceratopsHornGeo, this.dinoHornMat);
+    horn2.position.set(0.4, 2.2, 1.7);
+    horn2.rotation.x = Math.PI * 0.4;
+    group.add(horn1, horn2);
+    return group;
   }
 
   public spawn(zPos: number, currentBiome: BiomeType): void {
@@ -144,198 +363,40 @@ export class SceneryManager {
     const distanceOffset = isGroundDino ? 22 + Math.random() * 12 : 7.5 + Math.random() * 8.5;
     const xPos = side * distanceOffset;
 
-    const group = this.pool.acquire();
-    this.populateSceneryMesh(group, currentBiome, isGroundDino);
+    let archetype: string;
+    const rand = Math.random();
+
+    if (isGroundDino) {
+      archetype = rand > 0.5 ? "dino_brachio" : "dino_triceratops";
+    } else if (currentBiome === "park") {
+      archetype = rand > 0.5 ? "park_tree" : rand > 0.25 ? "park_bush" : "park_flowers";
+    } else if (currentBiome === "lake") {
+      archetype = rand > 0.5 ? "lake_lily" : "lake_cattail";
+    } else if (currentBiome === "sunset") {
+      archetype = rand > 0.45 ? "sunset_tree" : "sunset_fern";
+    } else {
+      archetype = rand > 0.5 ? "dino_cycad" : "dino_rock";
+    }
+
+    const pool = this.pools[archetype];
+    const group = pool ? pool.acquire() : new THREE.Group();
 
     group.position.set(xPos, 0, zPos);
     this.container.add(group);
 
     const item: SceneryItem = {
       mesh: group,
+      archetype,
       biome: currentBiome,
       type: isGroundDino ? "dino" : "scenery",
       phase: Math.random() * Math.PI * 2,
       swaySpeed: 1.5 + Math.random() * 1.0,
-      isPlant: currentBiome !== "lake" && !isGroundDino,
+      isPlant: currentBiome !== "lake" && !isGroundDino && archetype !== "dino_rock",
       isWaterPlant: currentBiome === "lake",
       isDino: isGroundDino,
     };
 
     this.activeItems.push(item);
-  }
-
-  private populateSceneryMesh(group: THREE.Group, biome: BiomeType, isGroundDino = false): void {
-    const rand = Math.random();
-
-    if (isGroundDino) {
-      if (rand > 0.5) {
-        const body = new THREE.Mesh(this.brachioBodyGeo, this.dinoMat);
-        body.position.y = 2.8;
-        body.castShadow = true;
-        group.add(body);
-
-        const neckGroup = new THREE.Group();
-        neckGroup.position.set(0, 3.2, 1.8);
-        neckGroup.rotation.x = -Math.PI * 0.18;
-
-        const neck = new THREE.Mesh(this.brachioNeckGeo, this.dinoMat);
-        neck.position.y = 2.75;
-        neckGroup.add(neck);
-
-        const head = new THREE.Mesh(this.brachioHeadGeo, this.dinoMat);
-        head.position.set(0, 5.5, 0.4);
-        neckGroup.add(head);
-
-        group.add(neckGroup);
-        group.userData = { neckGroup };
-
-        for (let i = 0; i < 4; i++) {
-          const leg = new THREE.Mesh(this.brachioLegGeo, this.dinoMat);
-          const lx = (i % 2 === 0 ? -1 : 1) * 0.9;
-          const lz = (i < 2 ? -1 : 1) * 1.2;
-          leg.position.set(lx, 1.4, lz);
-          leg.castShadow = true;
-          group.add(leg);
-        }
-      } else {
-        const body = new THREE.Mesh(this.triceratopsBodyGeo, this.dinoMat);
-        body.position.y = 1.4;
-        body.castShadow = true;
-        group.add(body);
-
-        const frill = new THREE.Mesh(this.triceratopsFrillGeo, this.dinoMat);
-        frill.position.set(0, 2.0, 1.4);
-        frill.rotation.x = Math.PI * 0.35;
-        group.add(frill);
-
-        const horn1 = new THREE.Mesh(this.triceratopsHornGeo, this.dinoHornMat);
-        horn1.position.set(-0.4, 2.2, 1.7);
-        horn1.rotation.x = Math.PI * 0.4;
-        const horn2 = new THREE.Mesh(this.triceratopsHornGeo, this.dinoHornMat);
-        horn2.position.set(0.4, 2.2, 1.7);
-        horn2.rotation.x = Math.PI * 0.4;
-        group.add(horn1, horn2);
-      }
-      return;
-    }
-
-    if (biome === "park") {
-      if (rand > 0.5) {
-        const trunk = new THREE.Mesh(this.trunkGeo, this.woodMat);
-        trunk.position.y = 1;
-        trunk.castShadow = true;
-        group.add(trunk);
-
-        const leaf1 = new THREE.Mesh(this.canopyLargeGeo, this.leafMat);
-        leaf1.position.set(0, 2.4, 0);
-        leaf1.castShadow = true;
-        const leaf2 = new THREE.Mesh(this.canopyMedGeo, this.leafMat);
-        leaf2.position.set(0.5, 2.0, 0.4);
-        leaf2.castShadow = true;
-        const leaf3 = new THREE.Mesh(this.canopyMedGeo, this.leafMat);
-        leaf3.position.set(-0.5, 2.0, -0.4);
-        leaf3.castShadow = true;
-        group.add(leaf1, leaf2, leaf3);
-
-        for (let a = 0; a < 4; a++) {
-          const apple = new THREE.Mesh(this.appleGeo, this.redMat);
-          apple.position.set((Math.random() - 0.5) * 1.5, 1.8 + Math.random() * 0.9, (Math.random() - 0.5) * 1.5);
-          group.add(apple);
-        }
-      } else if (rand > 0.25) {
-        const b1 = new THREE.Mesh(this.bushGeo1, this.roseMat);
-        b1.position.y = 0.6;
-        b1.castShadow = true;
-        const b2 = new THREE.Mesh(this.bushGeo2, this.roseMat);
-        b2.position.set(0.5, 0.4, 0.2);
-        b2.castShadow = true;
-        group.add(b1, b2);
-      } else {
-        for (let f = 0; f < 3; f++) {
-          const head = new THREE.Mesh(this.flowerHeadGeo, this.whiteMat);
-          head.position.set((f - 1) * 0.5, 0.35, (Math.random() - 0.5) * 0.5);
-          const center = new THREE.Mesh(this.flowerCenterGeo, this.goldMat);
-          center.position.set((f - 1) * 0.5, 0.4, (Math.random() - 0.5) * 0.5);
-          group.add(head, center);
-        }
-      }
-    } else if (biome === "lake") {
-      if (rand > 0.5) {
-        const pad = new THREE.Mesh(this.waterPadGeo, this.leafMat);
-        pad.position.y = 0.05;
-        group.add(pad);
-
-        const flower = new THREE.Mesh(this.waterLotusGeo, this.roseMat);
-        flower.scale.set(1, 0.5, 1);
-        flower.position.set(0.15, 0.15, 0.15);
-        group.add(flower);
-      } else {
-        for (let c = 0; c < 3; c++) {
-          const stem = new THREE.Mesh(this.cattailStemGeo, this.leafMat);
-          stem.position.set((c - 1) * 0.35, 0.9, (Math.random() - 0.5) * 0.3);
-          const top = new THREE.Mesh(this.cattailTopGeo, this.flowerHeadMat);
-          top.position.set((c - 1) * 0.35, 1.5, (Math.random() - 0.5) * 0.3);
-          group.add(stem, top);
-        }
-      }
-    } else if (biome === "sunset") {
-      if (rand > 0.45) {
-        const trunk = new THREE.Mesh(this.jungleTrunkGeo, this.woodMat);
-        trunk.position.y = 2.5;
-        trunk.castShadow = true;
-        group.add(trunk);
-
-        const l1 = new THREE.Mesh(this.jungleCanopy1Geo, this.leafMat);
-        l1.position.set(0, 5.2, 0);
-        l1.scale.set(1, 0.6, 1);
-        l1.castShadow = true;
-        const l2 = new THREE.Mesh(this.jungleCanopy2Geo, this.leafMat);
-        l2.position.set(1.2, 4.4, 1.0);
-        l2.scale.set(1, 0.6, 1);
-        l2.castShadow = true;
-        group.add(l1, l2);
-      } else {
-        for (let f = 0; f < 4; f++) {
-          const frond = new THREE.Mesh(this.fernFrondGeo, this.leafMat);
-          frond.position.y = 1.6;
-          frond.castShadow = true;
-          const pivot = new THREE.Group();
-          pivot.add(frond);
-          pivot.rotation.y = (f / 4) * Math.PI * 2;
-          pivot.rotation.x = Math.PI * 0.28;
-          group.add(pivot);
-        }
-      }
-    } else if (biome === "dino") {
-      if (rand > 0.5) {
-        const trunk = new THREE.Mesh(this.cycadTrunkGeo, this.woodMat);
-        trunk.position.y = 1.5;
-        trunk.castShadow = true;
-        group.add(trunk);
-
-        for (let i = 0; i < 5; i++) {
-          const frond = new THREE.Mesh(this.cycadFrondGeo, this.leafMat);
-          frond.position.y = 1.2;
-          const pivot = new THREE.Group();
-          pivot.add(frond);
-          pivot.position.y = 3.0;
-          pivot.rotation.y = (i / 5) * Math.PI * 2;
-          pivot.rotation.x = Math.PI * 0.35;
-          group.add(pivot);
-        }
-      } else {
-        const rock1 = new THREE.Mesh(this.rockLargeGeo, this.rockMat);
-        rock1.position.set(0, 0.8, 0);
-        rock1.scale.set(1.2, 0.8, 1.0);
-        rock1.castShadow = true;
-
-        const rock2 = new THREE.Mesh(this.rockMedGeo, this.rockMat);
-        rock2.position.set(0.8, 0.4, 0.4);
-        rock2.castShadow = true;
-
-        group.add(rock1, rock2);
-      }
-    }
   }
 
   public update(speed: number, dt: number, simTime: number): void {
@@ -359,24 +420,32 @@ export class SceneryManager {
       }
 
       if (item.mesh.position.z > 20) {
-        this.container.remove(item.mesh);
-        this.pool.release(item.mesh);
-        this.activeItems.splice(i, 1);
+        this.removeAt(i);
       }
     }
+  }
+
+  public removeAt(index: number): void {
+    const item = this.activeItems[index];
+    if (!item) return;
+    this.container.remove(item.mesh);
+    this.pools[item.archetype]?.release(item.mesh);
+    this.activeItems.splice(index, 1);
   }
 
   public reset(): void {
     for (const item of this.activeItems) {
       this.container.remove(item.mesh);
-      this.pool.release(item.mesh);
+      this.pools[item.archetype]?.release(item.mesh);
     }
     this.activeItems = [];
   }
 
   public dispose(): void {
     this.reset();
-    this.pool.clear();
+    for (const pool of Object.values(this.pools)) {
+      pool.clear();
+    }
 
     this.woodMat.dispose();
     this.leafMat.dispose();
@@ -419,3 +488,4 @@ export class SceneryManager {
     this.triceratopsHornGeo.dispose();
   }
 }
+

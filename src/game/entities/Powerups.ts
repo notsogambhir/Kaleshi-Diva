@@ -116,6 +116,8 @@ export class PowerupManager {
         color: 0xffffff,
         transparent: true,
         opacity: 0.5,
+        depthWrite: false,
+        fog: false,
       })
     );
 
@@ -244,58 +246,59 @@ export class PowerupManager {
     } else if (type === "dino") {
       const dinoGroup = new THREE.Group();
 
-      // Torso
-      const body = new THREE.Mesh(this.dinoBodyGeo, this.greenDinoMat);
-      body.scale.set(0.85, 1.2, 1.0);
-      body.position.set(0, 0.05, 0);
+      // Sloping Sauropod Torso
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 12), this.greenDinoMat);
+      body.scale.set(1.0, 0.85, 1.4);
+      body.position.set(0, -0.02, 0);
       dinoGroup.add(body);
 
-      // Neck & Head
-      const neck = new THREE.Mesh(this.dinoNeckGeo, this.greenDinoMat);
-      neck.position.set(0, 0.18, 0.06);
-      neck.rotation.x = 0.3;
+      // Long Arched Neck
+      const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.065, 0.26, 8), this.greenDinoMat);
+      neck.position.set(0, 0.12, 0.11);
+      neck.rotation.x = -0.55;
       dinoGroup.add(neck);
 
-      const head = new THREE.Mesh(this.dinoHeadGeo, this.greenDinoMat);
-      head.position.set(0, 0.25, 0.12);
+      // Head with Nasal Dome Crest
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), this.greenDinoMat);
+      head.position.set(0, 0.24, 0.18);
       dinoGroup.add(head);
+
+      const crest = new THREE.Mesh(new THREE.SphereGeometry(0.038, 8, 8), this.amberDinoMat);
+      crest.position.set(0, 0.28, 0.19);
+      dinoGroup.add(crest);
+
+      const snout = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), this.greenDinoMat);
+      snout.position.set(0, 0.22, 0.23);
+      dinoGroup.add(snout);
 
       // Eyes
       const eyeL = new THREE.Mesh(this.dinoEyeGeo, this.blackMat);
-      eyeL.position.set(-0.06, 0.27, 0.14);
+      eyeL.position.set(-0.045, 0.25, 0.2);
       const eyeR = new THREE.Mesh(this.dinoEyeGeo, this.blackMat);
-      eyeR.position.set(0.06, 0.27, 0.14);
+      eyeR.position.set(0.045, 0.25, 0.2);
       dinoGroup.add(eyeL, eyeR);
 
-      // Tail counterweight
-      const tail = new THREE.Mesh(this.dinoTailGeo, this.greenDinoMat);
-      tail.position.set(0, -0.02, -0.2);
+      // Long Whiplash Tail
+      const tail = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.32, 6), this.greenDinoMat);
+      tail.position.set(0, -0.04, -0.22);
       tail.rotation.x = -Math.PI / 2.3;
       dinoGroup.add(tail);
 
-      // Bipedal hind legs
-      const legL = new THREE.Mesh(this.dinoLegGeo, this.greenDinoMat);
-      legL.position.set(-0.09, -0.08, -0.02);
-      const legR = new THREE.Mesh(this.dinoLegGeo, this.greenDinoMat);
-      legR.position.set(0.09, -0.08, -0.02);
-      dinoGroup.add(legL, legR);
+      // 4 Pillar Legs (Taller Front Legs)
+      const frontLegGeo = new THREE.CylinderGeometry(0.035, 0.042, 0.2, 6);
+      const hindLegGeo = new THREE.CylinderGeometry(0.035, 0.04, 0.16, 6);
 
-      // Forelimbs / tiny arms
-      const armL = new THREE.Mesh(this.dinoArmGeo, this.amberDinoMat);
-      armL.position.set(-0.08, 0.08, 0.08);
-      armL.rotation.x = 0.5;
-      const armR = new THREE.Mesh(this.dinoArmGeo, this.amberDinoMat);
-      armR.position.set(0.08, 0.08, 0.08);
-      armR.rotation.x = 0.5;
-      dinoGroup.add(armL, armR);
+      const legFL = new THREE.Mesh(frontLegGeo, this.greenDinoMat);
+      legFL.position.set(-0.1, -0.13, 0.1);
+      const legFR = new THREE.Mesh(frontLegGeo, this.greenDinoMat);
+      legFR.position.set(0.1, -0.13, 0.1);
 
-      // Back spikes along spine
-      for (let s = 0; s < 4; s++) {
-        const spike = new THREE.Mesh(this.dinoSpikeGeo, this.amberDinoMat);
-        spike.position.set(0, 0.18 - s * 0.06, -0.02 - s * 0.06);
-        spike.rotation.x = -0.3;
-        dinoGroup.add(spike);
-      }
+      const legBL = new THREE.Mesh(hindLegGeo, this.greenDinoMat);
+      legBL.position.set(-0.09, -0.15, -0.1);
+      const legBR = new THREE.Mesh(hindLegGeo, this.greenDinoMat);
+      legBR.position.set(0.09, -0.15, -0.1);
+
+      dinoGroup.add(legFL, legFR, legBL, legBR);
 
       group.add(dinoGroup);
     }

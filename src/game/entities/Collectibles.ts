@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { registerCurvedMaterial } from "../core/CurvedWorld";
 import { ObjectPool } from "../core/Pool";
 import { TextureGenerator } from "../TextureGenerator";
@@ -19,6 +20,7 @@ export interface SunflowerItem {
 export class CollectibleManager {
   private container: THREE.Object3D;
   public activeItems: SunflowerItem[] = [];
+  public onSunflowerMissed?: () => void;
   private pool: ObjectPool<THREE.Group>;
 
   // Shared Materials
@@ -32,6 +34,8 @@ export class CollectibleManager {
   private petalGeo: THREE.SphereGeometry;
   private stalkGeo: THREE.CylinderGeometry;
   private leafGeo: THREE.SphereGeometry;
+  private combinedPetalsGeo: THREE.BufferGeometry;
+  private combinedStalkLeavesGeo: THREE.BufferGeometry;
 
   constructor(container: THREE.Object3D) {
     this.container = container;
@@ -54,6 +58,8 @@ export class CollectibleManager {
         color: 0xffcc00,
         transparent: true,
         opacity: 0.65,
+        depthWrite: false,
+        fog: false,
       })
     );
 
@@ -63,6 +69,35 @@ export class CollectibleManager {
     this.stalkGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.5, 6);
     this.leafGeo = new THREE.SphereGeometry(0.15, 6, 6);
     this.leafGeo.scale(1, 0.2, 0.5);
+
+    // Pre-merge 12 Petals into a single high-performance static BufferGeometry
+    const petalGeometries: THREE.BufferGeometry[] = [];
+    for (let i = 0; i < 12; i++) {
+      const pGeo = this.petalGeo.clone();
+      const angle = (i / 12) * Math.PI * 2;
+      pGeo.rotateZ(angle);
+      pGeo.translate(Math.cos(angle) * 0.35, Math.sin(angle) * 0.35, 0);
+      petalGeometries.push(pGeo);
+    }
+    this.combinedPetalsGeo = mergeGeometries(petalGeometries, false)!;
+    petalGeometries.forEach((g) => g.dispose());
+
+    // Pre-merge Stalk and 2 Leaves into a single high-performance static BufferGeometry
+    const stalkGeoClone = this.stalkGeo.clone();
+    stalkGeoClone.translate(0, -0.75, 0);
+
+    const leaf1Clone = this.leafGeo.clone();
+    leaf1Clone.rotateZ(Math.PI / 4);
+    leaf1Clone.translate(0.15, -0.6, 0);
+
+    const leaf2Clone = this.leafGeo.clone();
+    leaf2Clone.rotateZ(-Math.PI / 4);
+    leaf2Clone.translate(-0.15, -1.0, 0);
+
+    this.combinedStalkLeavesGeo = mergeGeometries([stalkGeoClone, leaf1Clone, leaf2Clone], false)!;
+    stalkGeoClone.dispose();
+    leaf1Clone.dispose();
+    leaf2Clone.dispose();
 
     this.pool = new ObjectPool<THREE.Group>(
       () => this.createSunflowerMesh(),
@@ -82,13 +117,8 @@ export class CollectibleManager {
     head.rotation.x = Math.PI / 2;
     headGroup.add(head);
 
-    for (let i = 0; i < 12; i++) {
-      const petal = new THREE.Mesh(this.petalGeo, this.petalMat);
-      const angle = (i / 12) * Math.PI * 2;
-      petal.position.set(Math.cos(angle) * 0.35, Math.sin(angle) * 0.35, 0);
-      petal.rotation.z = angle;
-      headGroup.add(petal);
-    }
+    const petals = new THREE.Mesh(this.combinedPetalsGeo, this.petalMat);
+    headGroup.add(petals);
 
     const glowSprite = new THREE.Sprite(this.glowSpriteMat);
     glowSprite.scale.set(1.4, 1.4, 1.4);
@@ -97,21 +127,10 @@ export class CollectibleManager {
 
     group.add(headGroup);
 
-    const stalk = new THREE.Mesh(this.stalkGeo, this.leafMat);
-    stalk.position.y = -0.75;
-    group.add(stalk);
+    const stalkAndLeaves = new THREE.Mesh(this.combinedStalkLeavesGeo, this.leafMat);
+    group.add(stalkAndLeaves);
 
-    const leaf1 = new THREE.Mesh(this.leafGeo, this.leafMat);
-    leaf1.position.set(0.15, -0.6, 0);
-    leaf1.rotation.z = Math.PI / 4;
-    group.add(leaf1);
-
-    const leaf2 = new THREE.Mesh(this.leafGeo, this.leafMat);
-    leaf2.position.set(-0.15, -1.0, 0);
-    leaf2.rotation.z = -Math.PI / 4;
-    group.add(leaf2);
-
-    group.userData = { headGroup, stalk, leaf1, leaf2 };
+    group.userData = { headGroup, stalkAndLeaves };
     return group;
   }
 
@@ -122,13 +141,9 @@ export class CollectibleManager {
     const group = this.pool.acquire();
     group.position.set(xPos, yPos, zPos);
 
-    const stalk = group.userData.stalk as THREE.Mesh;
-    const leaf1 = group.userData.leaf1 as THREE.Mesh;
-    const leaf2 = group.userData.leaf2 as THREE.Mesh;
+    const stalkAndLeaves = group.userData.stalkAndLeaves as THREE.Mesh;
     const isFloating = yPos > 2.0 || isSky;
-    if (stalk) stalk.visible = !isFloating;
-    if (leaf1) leaf1.visible = !isFloating;
-    if (leaf2) leaf2.visible = !isFloating;
+    if (stalkAndLeaves) stalkAndLeaves.visible = !isFloating;
 
     this.container.add(group);
 
@@ -182,33 +197,44 @@ export class CollectibleManager {
 
       if (magnetActive && item.active) {
         // Speed-compensated capture distance: ensures far flowers start pulling in sooner at high speeds
-        const maxMagnetDistance = 34 + speed * 35;
-        const targetY = playerPos.y + 1.2;
+        const maxMagnetDistance = 36 + speed * 38;
+        const targetY = playerPos.y + 1.1;
         const dx = playerPos.x - item.mesh.position.x;
         const dy = targetY - item.mesh.position.y;
         const dz = playerPos.z - item.mesh.position.z;
         const distSq = dx * dx + dy * dy + dz * dz;
         const dist = Math.sqrt(distSq);
 
-        if (dist < maxMagnetDistance && item.mesh.position.z < playerPos.z + 1.5) {
-          // Quadratic accelerating suction factor
+        if (dist < maxMagnetDistance && item.mesh.position.z < playerPos.z + 1.8) {
+          // Gravitational acceleration curve (eased exponential)
           const pullProgress = Math.max(0, 1 - dist / maxMagnetDistance);
-          const acceleration = (0.18 + pullProgress * pullProgress * 0.52) * (dt * 60);
+          const acceleration = (0.22 + pullProgress * pullProgress * 0.58) * (dt * 60);
 
-          // Inward swirling vortex component (swirls items gently as they fly in)
-          const swirlFactor = Math.sin(simTime * 8 + item.phase) * (1 - pullProgress) * 0.08;
+          // Inward swirling vortex component (swirls items smoothly into player)
+          const swirlAngle = simTime * 10 + item.phase;
+          const swirlRadius = (1 - pullProgress) * 0.14;
+          const swirlX = Math.cos(swirlAngle) * swirlRadius;
+          const swirlY = Math.sin(swirlAngle) * (swirlRadius * 0.5);
 
-          item.mesh.position.x += (dx + swirlFactor) * acceleration;
-          item.mesh.position.y += dy * acceleration;
-          item.mesh.position.z += (dz + 1.5) * acceleration;
+          item.mesh.position.x += (dx + swirlX) * acceleration;
+          item.mesh.position.y += (dy + swirlY) * acceleration;
+          item.mesh.position.z += (dz + 1.4) * acceleration;
 
-          // Extra forward suction to guarantee catching before player passes
-          item.mesh.position.z += (0.35 + pullProgress * 0.75) * (dt * 60);
+          // Forward suction to guarantee catching
+          item.mesh.position.z += (0.38 + pullProgress * 0.8) * (dt * 60);
 
           // Fast spinning head effect while flying into magnet
           if (item.headGroup) {
-            item.headGroup.rotation.z += (0.25 + pullProgress * 0.7) * (dt * 60);
+            item.headGroup.rotation.z += (0.3 + pullProgress * 0.8) * (dt * 60);
           }
+        }
+      }
+
+      // Check if active flower was missed and passed behind the player
+      if (item.active && item.mesh.position.z > playerPos.z + 1.2) {
+        item.active = false;
+        if (this.onSunflowerMissed) {
+          this.onSunflowerMissed();
         }
       }
 
@@ -246,5 +272,7 @@ export class CollectibleManager {
     this.petalGeo.dispose();
     this.stalkGeo.dispose();
     this.leafGeo.dispose();
+    this.combinedPetalsGeo.dispose();
+    this.combinedStalkLeavesGeo.dispose();
   }
 }

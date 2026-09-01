@@ -15,6 +15,13 @@ export type TextureType =
   | "rose"
   | "dress"
   | "dress_dino"
+  | "gambhir_hoodie"
+  | "gambhir_denim"
+  | "sneaker_diva"
+  | "sneaker_gambhir"
+  | "speech_bubble_suno"
+  | "speech_bubble_wait"
+  | "speech_bubble_flowers"
   | "wood"
   | "leaf"
   | "glow_radial"
@@ -32,6 +39,8 @@ export type TextureType =
   | "particle_star"
   | "particle_smoke"
   | "particle_petal"
+  | "particle_sweat"
+  | "particle_dust"
   | "macro_noise";
 
 export class TextureGenerator {
@@ -63,10 +72,19 @@ export class TextureGenerator {
       "particle_star",
       "particle_smoke",
       "particle_petal",
+      "particle_sweat",
+      "particle_dust",
       "obstacle_chevron",
       "obstacle_duck_arch",
       "dress",
       "dress_dino",
+      "gambhir_hoodie",
+      "gambhir_denim",
+      "sneaker_diva",
+      "sneaker_gambhir",
+      "speech_bubble_suno",
+      "speech_bubble_wait",
+      "speech_bubble_flowers",
       "road_asphalt",
       "bump_road_asphalt",
       "normal_road_asphalt",
@@ -380,6 +398,32 @@ export class TextureGenerator {
       cx.bezierCurveTo(sz * 0.8, sz * 0.2, sz * 0.9, sz * 0.7, center, sz * 0.9);
       cx.bezierCurveTo(sz * 0.1, sz * 0.7, sz * 0.2, sz * 0.2, center, sz * 0.1);
       cx.closePath();
+      cx.fill();
+    } else if (type === "particle_sweat") {
+      const center = sz / 2;
+      cx.fillStyle = "rgba(56, 189, 248, 0.95)";
+      cx.beginPath();
+      cx.moveTo(center, sz * 0.1);
+      cx.bezierCurveTo(sz * 0.8, sz * 0.45, sz * 0.85, sz * 0.85, center, sz * 0.9);
+      cx.bezierCurveTo(sz * 0.15, sz * 0.85, sz * 0.2, sz * 0.45, center, sz * 0.1);
+      cx.closePath();
+      cx.fill();
+
+      // Specular shine highlight
+      cx.fillStyle = "rgba(255, 255, 255, 0.85)";
+      cx.beginPath();
+      cx.arc(center - 12 * scale, center + 8 * scale, 10 * scale, 0, Math.PI * 2);
+      cx.fill();
+    } else if (type === "particle_dust") {
+      const center = sz / 2;
+      const grad = cx.createRadialGradient(center, center, 0, center, center, center * 0.85);
+      grad.addColorStop(0, "rgba(215, 205, 190, 0.9)");
+      grad.addColorStop(0.4, "rgba(195, 180, 160, 0.6)");
+      grad.addColorStop(0.75, "rgba(165, 150, 130, 0.2)");
+      grad.addColorStop(1, "rgba(140, 125, 105, 0.0)");
+      cx.fillStyle = grad;
+      cx.beginPath();
+      cx.arc(center, center, center * 0.85, 0, Math.PI * 2);
       cx.fill();
     } else if (type === "glow_radial") {
       const center = sz / 2;
@@ -785,22 +829,297 @@ export class TextureGenerator {
         });
       }
     } else if (type === "dress") {
-      cx.fillStyle = "#ffd54f";
+      // Kaleshi Diva Signature Sunflower Chic
+      cx.fillStyle = "#fbc02d";
       cx.fillRect(0, 0, sz, sz);
-      cx.fillStyle = "#f57c00";
-      for (let i = 0; i < 50; i++) {
+
+      // Subtle vertical pleated dress stripe sheen
+      const stripeW = 24 * scale;
+      cx.fillStyle = "rgba(245, 124, 0, 0.15)";
+      for (let x = 0; x < sz; x += stripeW * 2) {
+        cx.fillRect(x, 0, stripeW, sz);
+      }
+
+      // Stylized embroidered sunflowers
+      const flowers = 14;
+      for (let i = 0; i < flowers; i++) {
+        const fx = ((i * 137.5) % sz) + (i % 3) * 15 * scale;
+        const fy = ((i * 89.3) % sz) + (i % 2) * 20 * scale;
+        this.drawWrapped(cx, sz, fx, fy, 24 * scale, (dx, dy) => {
+          // Petals
+          cx.fillStyle = "#f59e0b";
+          for (let p = 0; p < 8; p++) {
+            const ang = (p / 8) * Math.PI * 2;
+            cx.beginPath();
+            cx.ellipse(
+              dx + Math.cos(ang) * 12 * scale,
+              dy + Math.sin(ang) * 12 * scale,
+              4 * scale,
+              10 * scale,
+              ang,
+              0,
+              Math.PI * 2
+            );
+            cx.fill();
+          }
+          // Center Seed Disc
+          cx.fillStyle = "#451a03";
+          cx.beginPath();
+          cx.arc(dx, dy, 7 * scale, 0, Math.PI * 2);
+          cx.fill();
+
+          // Golden sparkle center dots
+          cx.fillStyle = "#fbbf24";
+          cx.beginPath();
+          cx.arc(dx - 2 * scale, dy - 2 * scale, 2 * scale, 0, Math.PI * 2);
+          cx.fill();
+        });
+      }
+
+      // Bottom Brocade Border & Golden Lace Trim
+      cx.fillStyle = "#b45309";
+      cx.fillRect(0, sz - 32 * scale, sz, 32 * scale);
+      cx.fillStyle = "#fef08a";
+      for (let x = 0; x < sz; x += 16 * scale) {
         cx.beginPath();
-        cx.arc(Math.random() * sz, Math.random() * sz, 8 * scale, 0, Math.PI * 2);
+        cx.moveTo(x, sz - 32 * scale);
+        cx.lineTo(x + 8 * scale, sz - 16 * scale);
+        cx.lineTo(x + 16 * scale, sz - 32 * scale);
+        cx.closePath();
         cx.fill();
       }
     } else if (type === "dress_dino") {
-      cx.fillStyle = "#22c55e";
+      // Dino Explorer Outfit
+      cx.fillStyle = "#059669";
       cx.fillRect(0, 0, sz, sz);
-      cx.fillStyle = "#15803d";
-      for (let i = 0; i < 40; i++) {
+
+      // Prehistoric scale hexagon grid
+      cx.strokeStyle = "rgba(4, 120, 87, 0.4)";
+      cx.lineWidth = 3 * scale;
+      const step = 48 * scale;
+      for (let y = 0; y < sz; y += step) {
+        for (let x = 0; x < sz; x += step) {
+          const off = (y / step) % 2 === 0 ? 0 : step / 2;
+          cx.strokeRect(x + off, y, step, step);
+        }
+      }
+
+      // Mini cute dino footprint tracks
+      for (let i = 0; i < 12; i++) {
+        const px = (i * 97) % sz;
+        const py = (i * 123) % sz;
+        this.drawWrapped(cx, sz, px, py, 18 * scale, (dx, dy) => {
+          cx.fillStyle = "#047857";
+          cx.beginPath();
+          cx.arc(dx, dy, 6 * scale, 0, Math.PI * 2);
+          cx.fill();
+          cx.beginPath();
+          cx.arc(dx - 5 * scale, dy - 6 * scale, 3 * scale, 0, Math.PI * 2);
+          cx.arc(dx, dy - 8 * scale, 3 * scale, 0, Math.PI * 2);
+          cx.arc(dx + 5 * scale, dy - 6 * scale, 3 * scale, 0, Math.PI * 2);
+          cx.fill();
+        });
+      }
+
+      // Neon lime adventure trim
+      cx.fillStyle = "#a3e635";
+      cx.fillRect(0, sz - 18 * scale, sz, 18 * scale);
+    } else if (type === "gambhir_hoodie") {
+      // Gambhir Streetwear Soft Baby Pink Hoodie
+      const grad = cx.createLinearGradient(0, 0, sz, sz);
+      grad.addColorStop(0, "#fce7f3"); // Soft pastel baby pink
+      grad.addColorStop(0.5, "#fbcfe8");
+      grad.addColorStop(1, "#f472b6"); // Blush rose
+      cx.fillStyle = grad;
+      cx.fillRect(0, 0, sz, sz);
+
+      // Kangaroo front pocket curve in rich rose pink & white stitch
+      cx.fillStyle = "#f472b6";
+      cx.beginPath();
+      cx.roundRect(sz * 0.15, sz * 0.45, sz * 0.7, sz * 0.45, [16 * scale, 16 * scale, 0, 0]);
+      cx.fill();
+
+      cx.strokeStyle = "#ffffff";
+      cx.lineWidth = 3 * scale;
+      cx.stroke();
+
+      // White drawstring cords
+      cx.strokeStyle = "#ffffff";
+      cx.lineWidth = 4 * scale;
+      cx.beginPath();
+      cx.moveTo(sz * 0.4, 0);
+      cx.lineTo(sz * 0.4, sz * 0.35);
+      cx.moveTo(sz * 0.6, 0);
+      cx.lineTo(sz * 0.6, sz * 0.35);
+      cx.stroke();
+
+      // Rose-gold aglets
+      cx.fillStyle = "#f43f5e";
+      cx.fillRect(sz * 0.38, sz * 0.33, 4 * scale, 8 * scale);
+      cx.fillRect(sz * 0.58, sz * 0.33, 4 * scale, 8 * scale);
+
+      // Cute Gold & Pink Streetwear Chest Badge
+      const bx = sz * 0.5;
+      const by = sz * 0.22;
+      cx.fillStyle = "#fbbf24";
+      cx.beginPath();
+      cx.arc(bx, by, 20 * scale, 0, Math.PI * 2);
+      cx.fill();
+      cx.fillStyle = "#e11d48";
+      cx.font = `900 ${14 * scale}px sans-serif`;
+      cx.textAlign = "center";
+      cx.textBaseline = "middle";
+      cx.fillText("💖", bx, by);
+    } else if (type === "gambhir_denim") {
+      // Gambhir Crisp White Joggers
+      cx.fillStyle = "#ffffff";
+      cx.fillRect(0, 0, sz, sz);
+
+      // Subtle fine diagonal weave texture
+      cx.strokeStyle = "rgba(241, 245, 249, 0.8)";
+      cx.lineWidth = 2 * scale;
+      for (let i = -sz; i < sz * 2; i += 12 * scale) {
         cx.beginPath();
-        cx.arc(Math.random() * sz, Math.random() * sz, 9 * scale, 0, Math.PI * 2);
-        cx.fill();
+        cx.moveTo(i, 0);
+        cx.lineTo(i + sz, sz);
+        cx.stroke();
+      }
+
+      // Soft light-silver & blush double-stitched pocket & knee seams
+      cx.strokeStyle = "#e2e8f0";
+      cx.lineWidth = 3 * scale;
+      cx.strokeRect(sz * 0.1, sz * 0.2, sz * 0.35, sz * 0.4);
+      cx.strokeRect(sz * 0.55, sz * 0.2, sz * 0.35, sz * 0.4);
+
+      // Knee reinforcement line in soft blush
+      cx.strokeStyle = "#fbcfe8";
+      cx.beginPath();
+      cx.moveTo(0, sz * 0.65);
+      cx.lineTo(sz, sz * 0.65);
+      cx.stroke();
+    } else if (type === "sneaker_diva") {
+      // Diva Chic Running Sneaker
+      cx.fillStyle = "#ffffff";
+      cx.fillRect(0, 0, sz, sz);
+
+      // Metallic gold and hot pink speed swooshes
+      cx.fillStyle = "#ec4899";
+      cx.beginPath();
+      cx.moveTo(0, sz * 0.3);
+      cx.bezierCurveTo(sz * 0.5, sz * 0.15, sz * 0.7, sz * 0.6, sz, sz * 0.4);
+      cx.lineTo(sz, sz * 0.6);
+      cx.bezierCurveTo(sz * 0.7, sz * 0.8, sz * 0.4, sz * 0.4, 0, sz * 0.5);
+      cx.closePath();
+      cx.fill();
+
+      cx.fillStyle = "#eab308";
+      cx.fillRect(0, sz * 0.8, sz, sz * 0.15);
+
+      // Black tread lines
+      cx.fillStyle = "#1e293b";
+      for (let x = 0; x < sz; x += 32 * scale) {
+        cx.fillRect(x, sz * 0.95, 16 * scale, sz * 0.05);
+      }
+    } else if (type === "sneaker_gambhir") {
+      // Gambhir Clean All-White Chunky Streetwear Sneaker
+      cx.fillStyle = "#ffffff";
+      cx.fillRect(0, 0, sz, sz);
+
+      // Subtle light-silver side panel accents
+      cx.fillStyle = "#f8fafc";
+      cx.fillRect(0, sz * 0.25, sz, sz * 0.4);
+      cx.strokeStyle = "#e2e8f0";
+      cx.lineWidth = 3 * scale;
+      cx.strokeRect(0, sz * 0.25, sz, sz * 0.4);
+
+      // Pastel Baby Pink heel tab
+      cx.fillStyle = "#fbcfe8";
+      cx.fillRect(0, sz * 0.1, sz * 0.35, sz * 0.25);
+
+      // Clean Light Gray rubber tread sole
+      cx.fillStyle = "#cbd5e1";
+      cx.fillRect(0, sz * 0.88, sz, sz * 0.12);
+      for (let x = 0; x < sz; x += 28 * scale) {
+        cx.fillStyle = "#94a3b8";
+        cx.fillRect(x, sz * 0.94, 14 * scale, sz * 0.06);
+      }
+    } else if (
+      type === "speech_bubble_suno" ||
+      type === "speech_bubble_wait" ||
+      type === "speech_bubble_flowers"
+    ) {
+      // Stylized Comic Speech Bubble
+      const pad = 18 * scale;
+      const bw = sz - pad * 2;
+      const bh = sz * 0.72;
+
+      // Drop shadow
+      cx.fillStyle = "rgba(0, 0, 0, 0.4)";
+      cx.beginPath();
+      cx.roundRect(pad + 10 * scale, pad + 10 * scale, bw, bh, 32 * scale);
+      cx.fill();
+
+      // Bubble Body (Warm off-white to prevent bloom overglow)
+      cx.fillStyle = "#fffbf0";
+      cx.beginPath();
+      cx.roundRect(pad, pad, bw, bh, 32 * scale);
+      cx.fill();
+
+      // Tail pointer
+      cx.fillStyle = "#fffbf0";
+      cx.beginPath();
+      cx.moveTo(sz * 0.5 - 24 * scale, pad + bh - 2 * scale);
+      cx.lineTo(sz * 0.5, pad + bh + 36 * scale);
+      cx.lineTo(sz * 0.5 + 24 * scale, pad + bh - 2 * scale);
+      cx.closePath();
+      cx.fill();
+
+      // Comic Ink Border
+      cx.strokeStyle = "#0f172a";
+      cx.lineWidth = 12 * scale;
+      cx.lineJoin = "round";
+      cx.beginPath();
+      cx.roundRect(pad, pad, bw, bh, 32 * scale);
+      cx.stroke();
+
+      // Tail border
+      cx.beginPath();
+      cx.moveTo(sz * 0.5 - 24 * scale, pad + bh - 4 * scale);
+      cx.lineTo(sz * 0.5, pad + bh + 36 * scale);
+      cx.lineTo(sz * 0.5 + 24 * scale, pad + bh - 4 * scale);
+      cx.stroke();
+
+      // Inner patch to clear border between bubble and tail
+      cx.fillStyle = "#fffbf0";
+      cx.fillRect(sz * 0.5 - 20 * scale, pad + bh - 8 * scale, 40 * scale, 12 * scale);
+
+      cx.textAlign = "center";
+      cx.textBaseline = "middle";
+
+      if (type === "speech_bubble_suno") {
+        cx.fillStyle = "#0f172a";
+        cx.font = `900 ${52 * scale}px "Arial Black", Impact, sans-serif`;
+        cx.fillText("Suno toh! 😭", sz * 0.5, pad + bh * 0.38);
+
+        cx.fillStyle = "#e11d48";
+        cx.font = `800 ${32 * scale}px system-ui, -apple-system, sans-serif`;
+        cx.fillText("Ruk jao Diva!", sz * 0.5, pad + bh * 0.72);
+      } else if (type === "speech_bubble_wait") {
+        cx.fillStyle = "#0f172a";
+        cx.font = `900 ${50 * scale}px "Arial Black", Impact, sans-serif`;
+        cx.fillText("Wait up! 🏃‍♂️", sz * 0.5, pad + bh * 0.38);
+
+        cx.fillStyle = "#2563eb";
+        cx.font = `800 ${32 * scale}px system-ui, -apple-system, sans-serif`;
+        cx.fillText("Ek minute suno!", sz * 0.5, pad + bh * 0.72);
+      } else {
+        cx.fillStyle = "#0f172a";
+        cx.font = `900 ${48 * scale}px "Arial Black", Impact, sans-serif`;
+        cx.fillText("Got flowers! 🌻", sz * 0.5, pad + bh * 0.38);
+
+        cx.fillStyle = "#d97706";
+        cx.font = `800 ${30 * scale}px system-ui, -apple-system, sans-serif`;
+        cx.fillText("Special for you 💖", sz * 0.5, pad + bh * 0.72);
       }
     } else if (type === "wood") {
       cx.fillStyle = "#8d6e63";

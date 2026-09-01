@@ -54,7 +54,7 @@ export class GameEngine {
   private currentBiome: BiomeType = "park";
   private targetBiome: BiomeType = "park";
   private biomeTransitionProgress = 1.0;
-  private readonly biomeTransitionDuration = 2.0;
+  private readonly biomeTransitionDuration = 2.8;
 
   // Callbacks
   public onScoreUpdate: (score: number) => void = () => {};
@@ -69,6 +69,20 @@ export class GameEngine {
   public onPursuerDistanceUpdate: (distance: number) => void = () => {};
   public onComboUpdate: (combo: number) => void = () => {};
   public onDistanceUpdate: (distance: number) => void = () => {};
+  public onBiomeAnnounce: (biome: BiomeType, biomeName: string) => void = () => {};
+  public onPursuerSpeechChange: (speech: {
+    title: string;
+    subtitle: string;
+    emoji: string;
+    color: string;
+    active: boolean;
+  } | null) => void = () => {};
+  public onPursuerSpeechPosition: (x: number, y: number) => void = () => {};
+
+  // Speech tracking to avoid duplicate dispatches
+  private lastSpeechActive = false;
+  private lastSpeechTitle = "";
+  private speechHeadPos = new THREE.Vector3();
 
   // State
   public isPlaying = false;
@@ -111,6 +125,10 @@ export class GameEngine {
   private prevCamFollowTarget: THREE.Vector3 = new THREE.Vector3(0, 5, 12);
   private camFollowTarget: THREE.Vector3 = new THREE.Vector3(0, 5, 12);
   private interpolatedCam: THREE.Vector3 = new THREE.Vector3(0, 5, 12);
+  private camDip = 0;
+  private camDipVel = 0;
+  private camRoll = 0;
+  private prevCamRoll = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -177,6 +195,7 @@ export class GameEngine {
     );
 
     this.spawner.onBiomeChange = (newBiome) => this.startBiomeTransition(newBiome);
+    this.collectibles.onSunflowerMissed = () => this.pursuer.onMissSunflower();
 
     // 7. Pre-populate initial scenery
     for (let i = 0; i < 18; i++) {
@@ -422,6 +441,11 @@ export class GameEngine {
     this.prevCamFollowTarget.set(0, 5, 12);
     this.camFollowTarget.set(0, 5, 12);
     this.interpolatedCam.set(0, 5, 12);
+    this.camDip = 0;
+    this.camDipVel = 0;
+    this.camRoll = 0;
+    this.prevCamRoll = 0;
+    this.camera.rotation.z = 0;
 
     this.player.reset();
     this.pursuer.reset(this.player.simPosition.x);
@@ -459,11 +483,15 @@ export class GameEngine {
   }
 
   private startBiomeTransition(newBiome: BiomeType): void {
+    if (this.currentBiome === newBiome && this.biomeTransitionProgress >= 1.0) return;
     this.targetBiome = newBiome;
     this.biomeTransitionProgress = 0;
     this.audio.setBiome(newBiome);
-    this.effects.setBiome(newBiome);
+    this.track.startTransition(this.currentBiome, newBiome);
+    this.sky.startTransition(this.currentBiome, newBiome);
+    this.effects.startTransition(this.currentBiome, newBiome);
     this.updateEnvironmentMap(newBiome);
+    this.onBiomeAnnounce(newBiome, BIOMES[newBiome].name);
   }
 
   private setBiomeInstant(biome: BiomeType): void {
@@ -483,11 +511,7 @@ export class GameEngine {
       this.scene.fog.far = config.fogFar;
     }
 
-    if (config.hasSkySphere) {
-      this.scene.background = null;
-    } else {
-      this.scene.background = new THREE.Color(config.skyColor);
-    }
+    this.scene.background = new THREE.Color(config.skyColor);
 
     this.ambientLight.color.setHex(config.ambientColor);
     this.ambientLight.intensity = config.ambientIntensity;
@@ -507,6 +531,7 @@ export class GameEngine {
     const fromCfg = BIOMES[this.currentBiome];
     const toCfg = BIOMES[this.targetBiome];
 
+    // 1. Fog Interpolation
     if (this.scene.fog instanceof THREE.Fog) {
       const colFrom = new THREE.Color(fromCfg.fogColor);
       const colTo = new THREE.Color(toCfg.fogColor);
@@ -515,6 +540,14 @@ export class GameEngine {
       this.scene.fog.far = THREE.MathUtils.lerp(fromCfg.fogFar, toCfg.fogFar, p);
     }
 
+    // 2. Background Clear Color Interpolation
+    if (this.scene.background instanceof THREE.Color) {
+      const skyFrom = new THREE.Color(fromCfg.skyColor);
+      const skyTo = new THREE.Color(toCfg.skyColor);
+      this.scene.background.copy(skyFrom.lerp(skyTo, p));
+    }
+
+    // 3. 3-Point Lighting Interpolation
     const ambFrom = new THREE.Color(fromCfg.ambientColor);
     const ambTo = new THREE.Color(toCfg.ambientColor);
     this.ambientLight.color.copy(ambFrom.lerp(ambTo, p));
@@ -535,11 +568,17 @@ export class GameEngine {
 
     this.hemiLight.intensity = THREE.MathUtils.lerp(fromCfg.hemiIntensity, toCfg.hemiIntensity, p);
 
+    // 4. Subsystem Transitions
+    this.track.updateTransition(p);
+    this.sky.updateTransition(p);
+    this.effects.updateTransition(p);
+
+    // 5. Finalize at completion
     if (p >= 1.0) {
       this.currentBiome = this.targetBiome;
-      this.track.setBiome(this.targetBiome);
-      this.sky.setBiome(this.targetBiome);
-      this.effects.setBiome(this.targetBiome);
+      this.track.completeTransition(this.targetBiome);
+      this.sky.completeTransition(this.targetBiome);
+      this.effects.completeTransition(this.targetBiome);
       this.updateEnvironmentMap(this.targetBiome);
     }
   }
@@ -628,8 +667,18 @@ export class GameEngine {
     this.player.isBoosting = isDashing;
     this.player.setDinoMount(isRiding);
     const magnetActive = this.magnetTimer > 0 || isRiding;
-    this.player.setMagnet(magnetActive);
-    this.player.update(effectiveDt, simTime);
+    this.player.update(effectiveDt, simTime, this.pursuer.chaseDistance, this.effects);
+
+    // Dynamic landing recoil & camera dip feedback
+    if (this.player.landedThisFrame === "dive") {
+      this.camDip = -0.45;
+      this.camDipVel = 0.08;
+      this.effects.triggerShake(0.35);
+      HapticsManager.medium();
+    } else if (this.player.landedThisFrame === "normal") {
+      this.camDip = -0.15;
+      this.camDipVel = 0.035;
+    }
 
     if (magnetActive && this.isPlaying) {
       if (simTime - this.lastMagneticPulseTime > 1.4) {
@@ -765,18 +814,21 @@ export class GameEngine {
 
       if (collision.hitObstacleIndex >= 0) {
         const obs = this.obstacles.activeItems[collision.hitObstacleIndex];
+        const isWood = obs.type === "low" || obs.type === "high";
+        const debrisMat = isWood ? "wood" : "cyan";
+
         if (isInvincible || isRiding) {
           obs.active = false;
-          this.effects.emit(obs.mesh.position, 0xff9800, 15, "impact");
-          this.effects.triggerShake(0.3);
+          this.effects.emitObstacleShatter(obs.mesh.position, debrisMat, 7);
+          this.effects.triggerShake(0.35);
           this.audio.hit();
           this.obstacles.removeAt(collision.hitObstacleIndex);
         } else if (this.hasShield) {
           this.hasShield = false;
           this.player.setShield(false);
           obs.active = false;
-          this.effects.emit(obs.mesh.position, 0xffaa00, 12, "impact");
-          this.effects.triggerShake(0.45);
+          this.effects.emitObstacleShatter(obs.mesh.position, debrisMat, 8);
+          this.effects.triggerShake(0.48);
           this.audio.hit();
           HapticsManager.heavy();
           this.obstacles.removeAt(collision.hitObstacleIndex);
@@ -784,6 +836,30 @@ export class GameEngine {
           this.pursuer.onShieldImpact();
           this.combo = 0;
           this.notifyUI();
+        } else if (collision.hitType === "side_impact") {
+          // Side Impact / Stumble (Subway Surfers mechanic)
+          obs.sideHit = true;
+          this.player.bounceOffSide();
+          this.player.triggerStumble();
+          this.audio.stumble();
+
+          const contactX = (this.player.simPosition.x + obs.mesh.position.x) * 0.5;
+          this.effects.emit(
+            new THREE.Vector3(contactX, 1.0, this.player.simPosition.z),
+            0xffb703,
+            12,
+            "slide_spark"
+          );
+          this.effects.triggerShake(0.25);
+          HapticsManager.medium();
+          this.combo = 0;
+
+          const caught = this.pursuer.onSideImpact();
+          if (caught || this.pursuer.checkCaught()) {
+            this.triggerImpact();
+          } else {
+            this.notifyUI();
+          }
         } else {
           this.triggerImpact();
         }
@@ -805,7 +881,7 @@ export class GameEngine {
         }
       }
 
-      this.pursuer.updateChase(this.player.simPosition, effectiveDt, simTime);
+      this.pursuer.updateChase(this.player.simPosition, effectiveDt, simTime, this.effects);
     }
 
     // 5. Catch Cutscene
@@ -835,9 +911,21 @@ export class GameEngine {
 
     // 6. Camera Follow Target Calculation in Simulation Step (Fixes defect #12)
     this.prevCamFollowTarget.copy(this.camFollowTarget);
+    this.prevCamRoll = this.camRoll;
+
+    // Elastic spring for camera landing dip
+    const dipDiff = -this.camDip;
+    this.camDipVel += dipDiff * 0.22 * (effectiveDt * 60);
+    this.camDipVel *= Math.pow(0.72, effectiveDt * 60);
+    this.camDip += this.camDipVel * (effectiveDt * 60);
+
     const targetCamX = this.player.simPosition.x * 0.35;
-    this.camFollowTarget.x += (targetCamX - this.camFollowTarget.x) * 0.1 * (effectiveDt * 60);
-    this.camFollowTarget.y = THREE.MathUtils.lerp(this.camFollowTarget.y, 5, 0.1 * (effectiveDt * 60));
+    this.camFollowTarget.x += (targetCamX - this.camFollowTarget.x) * 0.12 * (effectiveDt * 60);
+    this.camFollowTarget.y = 5 + this.player.simPosition.y * 0.22 + this.camDip;
+
+    // Subtle Dutch angle banking on lane switches
+    const targetRoll = -this.player.velocityX * 0.08;
+    this.camRoll = THREE.MathUtils.lerp(this.camRoll, targetRoll, 0.18 * (effectiveDt * 60));
 
     // 7. Update Post-Processing Screen FX
     if (this.postPipeline.isEnabled) {
@@ -861,17 +949,51 @@ export class GameEngine {
     // 3. Interpolate camera between discrete simulation states
     const shake = this.effects.cameraShakeOffset;
     this.interpolatedCam.lerpVectors(this.prevCamFollowTarget, this.camFollowTarget, alpha);
+    const interpRoll = THREE.MathUtils.lerp(this.prevCamRoll, this.camRoll, alpha);
 
     this.camera.position.set(
       this.interpolatedCam.x + shake.x,
       this.interpolatedCam.y + shake.y,
       this.interpolatedCam.z + shake.z
     );
+    this.camera.rotation.z = interpRoll;
 
     if (this.postPipeline.isEnabled) {
       this.postPipeline.render();
     } else {
       this.renderer.render(this.scene, this.camera);
+    }
+
+    // 4. Update pursuer speech screen projection for DOM overlay
+    const speechState = this.pursuer.getSpeechState();
+    const isSpeechActive = speechState.active && (this.isPlaying || this.isCaughtAnimation);
+
+    if (isSpeechActive !== this.lastSpeechActive || (isSpeechActive && speechState.title !== this.lastSpeechTitle)) {
+      this.lastSpeechActive = isSpeechActive;
+      this.lastSpeechTitle = speechState.title;
+      if (isSpeechActive) {
+        this.onPursuerSpeechChange({
+          title: speechState.title,
+          subtitle: speechState.subtitle,
+          emoji: speechState.emoji,
+          color: speechState.color,
+          active: true,
+        });
+      } else {
+        this.onPursuerSpeechChange(null);
+      }
+    }
+
+    if (isSpeechActive) {
+      this.speechHeadPos.set(
+        this.pursuer.mesh.position.x,
+        this.pursuer.mesh.position.y + 2.4,
+        this.pursuer.mesh.position.z
+      );
+      this.speechHeadPos.project(this.camera);
+      const screenX = (this.speechHeadPos.x * 0.5 + 0.5) * window.innerWidth;
+      const screenY = (-(this.speechHeadPos.y * 0.5) + 0.5) * window.innerHeight;
+      this.onPursuerSpeechPosition(screenX, screenY);
     }
   }
 

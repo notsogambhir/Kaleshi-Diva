@@ -9,6 +9,7 @@ export class AudioManager {
   private nextNoteTime = 0;
   private noteIndex = 0;
   private currentBiome = "park";
+  private targetBiome = "park";
 
   // Pentatonic melodies per biome
   private readonly biomeMelodies: Record<string, number[]> = {
@@ -43,7 +44,7 @@ export class AudioManager {
   }
 
   public setBiome(biome: string): void {
-    this.currentBiome = biome;
+    this.targetBiome = biome;
   }
 
   public setMasterVolume(vol: number): void {
@@ -120,6 +121,13 @@ export class AudioManager {
     this.playTone(120, 40, 0.28, "sawtooth", 0.3);
   }
 
+  public stumble(): void {
+    this.playTone(180, 80, 0.15, "sawtooth", 0.25);
+    setTimeout(() => {
+      this.playTone(120, 60, 0.12, "triangle", 0.2);
+    }, 60);
+  }
+
   public powerup(): void {
     this.playTone(350, 900, 0.25, "sine", 0.25);
     setTimeout(() => {
@@ -166,6 +174,11 @@ export class AudioManager {
       if (!this.isMusicPlaying || !this.ctx) return;
 
       while (this.nextNoteTime < this.ctx.currentTime + lookahead) {
+        if (this.noteIndex % 4 === 0 && this.targetBiome !== this.currentBiome) {
+          this.currentBiome = this.targetBiome;
+          this.playTone(523.25, 659.25, 0.12, "sine", 0.04, this.nextNoteTime, true);
+        }
+
         const activeMelody = this.biomeMelodies[this.currentBiome] || this.biomeMelodies.park;
         const freq = activeMelody[this.noteIndex % activeMelody.length];
 

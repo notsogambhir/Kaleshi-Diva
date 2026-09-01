@@ -43,7 +43,7 @@ export const GameUI: React.FC<GameUIProps> = ({
   onChangeQuality,
 }) => {
   const dangerRatio = Math.max(0, Math.min(1, (8.0 - pursuerDistance) / 7.0));
-  const isCritical = pursuerDistance <= 3.0;
+  const isCritical = pursuerDistance <= 4.8;
 
   return (
     <div className="absolute inset-0 pointer-events-none pb-[max(1rem,env(safe-area-inset-bottom))] pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] pt-[max(1rem,env(safe-area-inset-top))]">
@@ -149,7 +149,7 @@ export const GameUI: React.FC<GameUIProps> = ({
             className="bg-green-500/80 backdrop-blur-md p-2 sm:p-2.5 rounded-full flex items-center justify-center animate-bounce shadow-[0_0_15px_rgba(34,197,94,0.8)]"
             style={{ animationDelay: "300ms" }}
           >
-            <span className="text-2xl leading-none">🦖</span>
+            <span className="text-2xl leading-none">🦕</span>
           </div>
         )}
       </div>

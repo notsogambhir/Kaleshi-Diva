@@ -117,9 +117,9 @@ export const StartScreen: React.FC<StartScreenProps> = ({
             className="flex flex-col items-center gap-1"
           >
             <div className="w-10 h-10 md:w-11 md:h-11 bg-green-100 rounded-full flex items-center justify-center text-lg md:text-xl shadow-inner">
-              🦖
+              🦕
             </div>
-            <span className="text-[10px] font-bold text-gray-600">Dino Ride</span>
+            <span className="text-[10px] font-bold text-gray-600">Brachio Ride</span>
           </motion.div>
         </div>
 
