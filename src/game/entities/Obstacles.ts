@@ -106,9 +106,9 @@ export class ObstacleManager {
     this.dinoTailGeo = new THREE.CylinderGeometry(0.2, 0.45, 2.6, 8);
     this.dinoTailRingGeo = new THREE.CylinderGeometry(0.36, 0.36, 0.15, 8);
     this.dinoPlateGeo = new THREE.ConeGeometry(0.25, 0.5, 4);
-    this.dinoFrillGeo = new THREE.TorusGeometry(1.3, 0.25, 8, 16, Math.PI);
-    // Legs span y=0..2.0 so the arch ends meet the ground instead of floating
-    this.dinoLegGeo = new THREE.BoxGeometry(0.3, 2.0, 0.3);
+    this.dinoFrillGeo = new THREE.TorusGeometry(1.3, 0.22, 8, 16, Math.PI);
+    // Lowered legs for blue arc hurdle so pillars reach y=1.1m
+    this.dinoLegGeo = new THREE.BoxGeometry(0.28, 1.1, 0.28);
 
     this.pool = new ObjectPool<THREE.Group>(
       () => new THREE.Group(),
@@ -135,9 +135,12 @@ export class ObstacleManager {
 
     let minY = 0;
     let maxY = 1.3;
-    if (type === "high" || type === "dino_high") {
+    if (type === "high") {
       minY = 1.5;
       maxY = 2.8;
+    } else if (type === "dino_high") {
+      minY = 1.15;
+      maxY = 2.4;
     }
 
     const item: ObstacleItem = {
@@ -223,18 +226,17 @@ export class ObstacleManager {
       }
     } else if (type === "dino_high") {
       const frill = new THREE.Mesh(this.dinoFrillGeo, this.dinoDuckFrillMat);
-      frill.position.set(0, 2.0, 0);
+      frill.position.set(0, 1.1, 0);
       frill.castShadow = true;
       group.add(frill);
 
-      // Grounded legs: the torus arc ends at local y=0, so without these the
-      // arch hangs 2 units above the track and reads as floating at distance.
+      // Lowered side legs grounded at y=0 reaching y=1.1m
       const legL = new THREE.Mesh(this.dinoLegGeo, this.dinoSkinMat);
-      legL.position.set(-1.3, 1.0, 0);
+      legL.position.set(-1.3, 0.55, 0);
       legL.castShadow = true;
 
       const legR = new THREE.Mesh(this.dinoLegGeo, this.dinoSkinMat);
-      legR.position.set(1.3, 1.0, 0);
+      legR.position.set(1.3, 0.55, 0);
       legR.castShadow = true;
 
       group.add(legL, legR);

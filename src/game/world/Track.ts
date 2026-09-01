@@ -33,12 +33,16 @@ export class Track {
 
     this.materials.water = registerCurvedMaterial(
       new THREE.MeshStandardMaterial({
+        color: 0x0284c7,
         map: TextureGenerator.getTexture("water", maxAnisotropy),
-        roughness: 0.2,
-        metalness: 0.1,
+        normalMap: TextureGenerator.getTexture("normal_water", maxAnisotropy),
+        normalScale: new THREE.Vector2(0.6, 0.6),
+        roughness: 0.38,
+        metalness: 0.02,
       })
     );
     this.materials.water.map!.repeat.set(10, 20);
+    this.materials.water.normalMap!.repeat.set(8, 16);
 
     this.materials.jungle = registerCurvedMaterial(
       new THREE.MeshStandardMaterial({
@@ -61,23 +65,29 @@ export class Track {
     this.materials.roadAsphalt = registerCurvedMaterial(
       new THREE.MeshStandardMaterial({
         map: TextureGenerator.getTexture("road_asphalt", maxAnisotropy),
+        normalMap: TextureGenerator.getTexture("normal_road_asphalt", maxAnisotropy),
+        normalScale: new THREE.Vector2(1.2, 1.2),
         bumpMap: TextureGenerator.getTexture("bump_road_asphalt", maxAnisotropy),
-        bumpScale: 0.04,
-        roughness: 0.8,
+        bumpScale: 0.03,
+        roughness: 0.75,
       })
     );
     this.materials.roadAsphalt.map!.repeat.set(1, 10);
+    this.materials.roadAsphalt.normalMap!.repeat.set(1, 10);
     this.materials.roadAsphalt.bumpMap!.repeat.set(1, 10);
 
     this.materials.roadWood = registerCurvedMaterial(
       new THREE.MeshStandardMaterial({
         map: TextureGenerator.getTexture("road_wood", maxAnisotropy),
+        normalMap: TextureGenerator.getTexture("normal_road_wood", maxAnisotropy),
+        normalScale: new THREE.Vector2(1.4, 1.4),
         bumpMap: TextureGenerator.getTexture("bump_road_wood", maxAnisotropy),
-        bumpScale: 0.06,
-        roughness: 0.85,
+        bumpScale: 0.05,
+        roughness: 0.8,
       })
     );
     this.materials.roadWood.map!.repeat.set(1, 10);
+    this.materials.roadWood.normalMap!.repeat.set(1, 10);
     this.materials.roadWood.bumpMap!.repeat.set(1, 10);
 
     this.materials.roadDirt = registerCurvedMaterial(
@@ -91,26 +101,33 @@ export class Track {
     this.materials.roadStone = registerCurvedMaterial(
       new THREE.MeshStandardMaterial({
         map: TextureGenerator.getTexture("road_stone", maxAnisotropy),
+        normalMap: TextureGenerator.getTexture("normal_road_stone", maxAnisotropy),
+        normalScale: new THREE.Vector2(1.6, 1.6),
         bumpMap: TextureGenerator.getTexture("bump_road_stone", maxAnisotropy),
-        bumpScale: 0.08,
-        roughness: 0.8,
+        bumpScale: 0.06,
+        roughness: 0.75,
       })
     );
     this.materials.roadStone.map!.repeat.set(1, 10);
+    this.materials.roadStone.normalMap!.repeat.set(1, 10);
     this.materials.roadStone.bumpMap!.repeat.set(1, 10);
 
     this.materials.cobble = registerCurvedMaterial(
       new THREE.MeshStandardMaterial({
         map: TextureGenerator.getTexture("cobblestone", maxAnisotropy),
-        roughness: 0.8,
+        normalMap: TextureGenerator.getTexture("normal_cobblestone", maxAnisotropy),
+        normalScale: new THREE.Vector2(1.5, 1.5),
+        roughness: 0.75,
       })
     );
     this.materials.cobble.map!.repeat.set(1, 50);
+    this.materials.cobble.normalMap!.repeat.set(1, 50);
 
     this.materials.border = registerCurvedMaterial(
       new THREE.MeshStandardMaterial({
-        color: 0xdddddd,
-        roughness: 0.7,
+        color: 0xeeeeee,
+        roughness: 0.4,
+        metalness: 0.2,
       })
     );
 
@@ -231,6 +248,9 @@ export class Track {
     const currentRoadMat = this.roadMesh.material as THREE.MeshStandardMaterial;
     if (currentRoadMat.map) {
       currentRoadMat.map.offset.y += scrollAmount;
+      if (currentRoadMat.normalMap) {
+        currentRoadMat.normalMap.offset.y += scrollAmount;
+      }
       if (currentRoadMat.bumpMap) {
         currentRoadMat.bumpMap.offset.y += scrollAmount;
       }
@@ -246,14 +266,24 @@ export class Track {
     if (this.materials.cobble && this.materials.cobble.map) {
       const cobbleScrollAmount = scrollAmount * 5;
       this.materials.cobble.map.offset.y += cobbleScrollAmount;
+      if (this.materials.cobble.normalMap) {
+        this.materials.cobble.normalMap.offset.y += cobbleScrollAmount;
+      }
       if (this.materials.cobble.bumpMap) {
         this.materials.cobble.bumpMap.offset.y += cobbleScrollAmount;
       }
     }
 
-    // Gentle wave drift on water
-    if (this.currentBiome === "lake" && this.materials.water.map) {
-      this.materials.water.map.offset.x = Math.sin(simTime * 1.5) * 0.02;
+    // Gentle wave drift & normal distortion on water
+    if (this.currentBiome === "lake") {
+      if (this.materials.water.map) {
+        this.materials.water.map.offset.x = Math.sin(simTime * 1.5) * 0.02;
+        this.materials.water.map.offset.y += scrollAmount * 0.4;
+      }
+      if (this.materials.water.normalMap) {
+        this.materials.water.normalMap.offset.x = Math.cos(simTime * 1.8) * 0.03;
+        this.materials.water.normalMap.offset.y += (scrollAmount * 0.5 + 0.001);
+      }
     }
   }
 

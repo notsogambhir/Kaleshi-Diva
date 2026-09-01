@@ -180,10 +180,36 @@ export class CollectibleManager {
         item.headGroup.rotation.y = Math.sin(simTime * 2 + item.phase) * 0.1;
       }
 
-      if (magnetActive && item.active && item.mesh.position.z > -28) {
-        item.mesh.position.x += (playerPos.x - item.mesh.position.x) * 0.14 * (dt * 60);
-        item.mesh.position.y += (playerPos.y + 1.2 - item.mesh.position.y) * 0.14 * (dt * 60);
-        item.mesh.position.z += 0.28 * (dt * 60);
+      if (magnetActive && item.active) {
+        // Speed-compensated capture distance: ensures far flowers start pulling in sooner at high speeds
+        const maxMagnetDistance = 34 + speed * 35;
+        const targetY = playerPos.y + 1.2;
+        const dx = playerPos.x - item.mesh.position.x;
+        const dy = targetY - item.mesh.position.y;
+        const dz = playerPos.z - item.mesh.position.z;
+        const distSq = dx * dx + dy * dy + dz * dz;
+        const dist = Math.sqrt(distSq);
+
+        if (dist < maxMagnetDistance && item.mesh.position.z < playerPos.z + 1.5) {
+          // Quadratic accelerating suction factor
+          const pullProgress = Math.max(0, 1 - dist / maxMagnetDistance);
+          const acceleration = (0.18 + pullProgress * pullProgress * 0.52) * (dt * 60);
+
+          // Inward swirling vortex component (swirls items gently as they fly in)
+          const swirlFactor = Math.sin(simTime * 8 + item.phase) * (1 - pullProgress) * 0.08;
+
+          item.mesh.position.x += (dx + swirlFactor) * acceleration;
+          item.mesh.position.y += dy * acceleration;
+          item.mesh.position.z += (dz + 1.5) * acceleration;
+
+          // Extra forward suction to guarantee catching before player passes
+          item.mesh.position.z += (0.35 + pullProgress * 0.75) * (dt * 60);
+
+          // Fast spinning head effect while flying into magnet
+          if (item.headGroup) {
+            item.headGroup.rotation.z += (0.25 + pullProgress * 0.7) * (dt * 60);
+          }
+        }
       }
 
       if (item.mesh.position.z > 10) {

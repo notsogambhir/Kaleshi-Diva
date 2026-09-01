@@ -109,8 +109,11 @@ export class AudioManager {
     this.playTone(300, 150, 0.08, "sine", 0.08);
   }
 
-  public collect(): void {
-    this.playTone(880, 1320, 0.08, "square", 0.08);
+  public collect(pitchStep = 0): void {
+    // Pentatonic scale arpeggio for magnet / rapid chain pickups
+    const scaleMultipliers = [1.0, 1.122, 1.26, 1.498, 1.682, 2.0, 2.245, 2.52];
+    const mult = scaleMultipliers[Math.min(Math.max(0, pitchStep), scaleMultipliers.length - 1)];
+    this.playTone(880 * mult, 1320 * mult, 0.08, "square", 0.08);
   }
 
   public hit(): void {
@@ -122,6 +125,13 @@ export class AudioManager {
     setTimeout(() => {
       this.playTone(500, 1200, 0.25, "sine", 0.25);
     }, 80);
+  }
+
+  public magnetActivate(): void {
+    this.playTone(320, 750, 0.22, "sine", 0.22);
+    setTimeout(() => {
+      this.playTone(600, 1400, 0.28, "sine", 0.25);
+    }, 70);
   }
 
   public dinoRoar(): void {

@@ -193,6 +193,9 @@ export default function App() {
   const handleChangeQuality = (tier: "low" | "medium" | "high") => {
     setQualityTier(tier);
     TextureGenerator.setResolution(tier === "low" ? 256 : 512);
+    if (engineRef.current) {
+      engineRef.current.setQualityTier(tier);
+    }
   };
 
   const handleDismissMilestone = useCallback(() => {

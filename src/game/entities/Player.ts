@@ -45,6 +45,7 @@ export class Player {
   private contactShadow: THREE.Mesh;
   private shieldMesh: THREE.Group;
   private dinoMountGroup: THREE.Group;
+  private magnetAuraGroup: THREE.Group;
 
   // Materials
   private skinMat: THREE.MeshStandardMaterial;
@@ -70,7 +71,13 @@ export class Player {
     );
     this.hairMat = registerCurvedMaterial(new THREE.MeshStandardMaterial({ color: 0x4e342e, roughness: 0.9 }));
     this.blackMat = registerCurvedMaterial(new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 }));
-    this.goldMat = registerCurvedMaterial(new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.15, metalness: 0.85 }));
+    this.goldMat = registerCurvedMaterial(
+      new THREE.MeshStandardMaterial({
+        color: 0xffd700,
+        roughness: 0.15,
+        metalness: 0.88,
+      })
+    );
     
     this.shadowMat = registerCurvedMaterial(
       new THREE.MeshBasicMaterial({
@@ -174,18 +181,42 @@ export class Player {
     // Full 240 merged curls
     this.buildFullMergedHair();
 
-    // 4. Shield Aura Group
+    // 4. Multi-Layered Radiant Fresnel Shield Aura Group
     this.shieldMesh = new THREE.Group();
     const shieldDome = new THREE.Mesh(
-      new THREE.SphereGeometry(0.85, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.7),
-      new THREE.MeshStandardMaterial({
-        color: 0xffd700,
-        transparent: true,
-        opacity: 0.45,
-        side: THREE.DoubleSide,
-      })
+      new THREE.SphereGeometry(1.05, 24, 24),
+      registerCurvedMaterial(
+        new THREE.MeshStandardMaterial({
+          color: 0xffd54f,
+          emissive: 0xffa000,
+          emissiveIntensity: 0.6,
+          roughness: 0.1,
+          metalness: 0.4,
+          transparent: true,
+          opacity: 0.42,
+          side: THREE.DoubleSide,
+        })
+      )
     );
     this.shieldMesh.add(shieldDome);
+
+    const shieldRingGeo = new THREE.TorusGeometry(1.2, 0.04, 8, 32);
+    const shieldRing = new THREE.Mesh(
+      shieldRingGeo,
+      registerCurvedMaterial(
+        new THREE.MeshStandardMaterial({
+          color: 0xffeb3b,
+          emissive: 0xffd700,
+          emissiveIntensity: 0.9,
+          roughness: 0.2,
+          metalness: 0.8,
+        })
+      )
+    );
+    shieldRing.name = "shield_energy_ring";
+    shieldRing.rotation.x = Math.PI / 2;
+    this.shieldMesh.add(shieldRing);
+
     this.shieldMesh.position.y = 1.2;
     this.shieldMesh.visible = false;
     this.mesh.add(this.shieldMesh);
@@ -195,7 +226,12 @@ export class Player {
     this.dinoMountGroup.visible = false;
     this.mesh.add(this.dinoMountGroup);
 
-    // 6. Soft Contact Shadow
+    // 6. 3D Orbiting Nazar Magnet Aura
+    this.magnetAuraGroup = this.buildMagnetAura();
+    this.magnetAuraGroup.visible = false;
+    this.mesh.add(this.magnetAuraGroup);
+
+    // 7. Soft Contact Shadow
     const shadowGeo = new THREE.PlaneGeometry(1.2, 0.8);
     this.contactShadow = new THREE.Mesh(shadowGeo, this.shadowMat);
     this.contactShadow.rotation.x = -Math.PI / 2;
@@ -304,6 +340,85 @@ export class Player {
     return mount;
   }
 
+  private buildMagnetAura(): THREE.Group {
+    const group = new THREE.Group();
+
+    // 1. Orbiting Charm Container
+    const charm = new THREE.Group();
+    charm.name = "orbiting_nazar_charm";
+
+    // Gold beaded border ring
+    const chainGeo = new THREE.TorusGeometry(0.22, 0.02, 8, 24);
+    const chain = new THREE.Mesh(chainGeo, this.goldMat);
+    charm.add(chain);
+
+    const whiteMat = registerCurvedMaterial(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 }));
+    for (let i = 0; i < 12; i++) {
+      const angle = (i / 12) * Math.PI * 2;
+      const bead = new THREE.Mesh(
+        new THREE.SphereGeometry(0.035, 6, 6),
+        i % 2 === 0 ? this.blackMat : whiteMat
+      );
+      bead.position.set(Math.cos(angle) * 0.22, Math.sin(angle) * 0.22, 0);
+      charm.add(bead);
+    }
+
+    // Nazar Eye Concentric Discs
+    const eyeOuterMat = registerCurvedMaterial(
+      new THREE.MeshStandardMaterial({
+        color: 0x0284c7,
+        emissive: 0x0369a1,
+        emissiveIntensity: 0.6,
+        roughness: 0.2,
+      })
+    );
+    const eyeOuter = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.03, 16), eyeOuterMat);
+    eyeOuter.rotation.x = Math.PI / 2;
+    charm.add(eyeOuter);
+
+    const eyeInner = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.035, 16), whiteMat);
+    eyeInner.rotation.x = Math.PI / 2;
+    charm.add(eyeInner);
+
+    const eyePupil = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.04, 8), this.blackMat);
+    eyePupil.rotation.x = Math.PI / 2;
+    charm.add(eyePupil);
+
+    // Glowing Cyan Energy Aura Sphere around Charm
+    const glowGeo = new THREE.SphereGeometry(0.28, 12, 12);
+    const glowMat = registerCurvedMaterial(
+      new THREE.MeshStandardMaterial({
+        color: 0x38bdf8,
+        emissive: 0x0ea5e9,
+        emissiveIntensity: 0.8,
+        transparent: true,
+        opacity: 0.35,
+        roughness: 0.1,
+      })
+    );
+    charm.add(new THREE.Mesh(glowGeo, glowMat));
+
+    group.add(charm);
+
+    // 2. Ground Magnetic Field Ring
+    const groundRingGeo = new THREE.TorusGeometry(1.1, 0.035, 6, 28);
+    const groundRingMat = registerCurvedMaterial(
+      new THREE.MeshStandardMaterial({
+        color: 0x38bdf8,
+        emissive: 0x0284c7,
+        emissiveIntensity: 0.7,
+        roughness: 0.2,
+      })
+    );
+    const groundRing = new THREE.Mesh(groundRingGeo, groundRingMat);
+    groundRing.name = "magnet_ground_ring";
+    groundRing.rotation.x = Math.PI / 2;
+    groundRing.position.y = 0.08;
+    group.add(groundRing);
+
+    return group;
+  }
+
   public setOutfit(outfitId: OutfitId): void {
     if (outfitId === "dino") {
       this.dressMat.map = TextureGenerator.getTexture("dress_dino");
@@ -316,6 +431,10 @@ export class Player {
   public setDinoMount(mounted: boolean): void {
     this.isMounted = mounted;
     this.dinoMountGroup.visible = mounted;
+  }
+
+  public setMagnet(visible: boolean): void {
+    this.magnetAuraGroup.visible = visible;
   }
 
   public moveLeft(): boolean {
@@ -401,6 +520,7 @@ export class Player {
     this.bodyGroup.position.y = 0;
     this.shieldMesh.visible = false;
     this.dinoMountGroup.visible = false;
+    this.magnetAuraGroup.visible = false;
   }
 
   public interpolateRender(alpha: number): void {
@@ -500,10 +620,38 @@ export class Player {
     this.mesh.rotation.z = Math.sin(simTime * 8) * 0.04 + bankAngle;
     this.mesh.rotation.x = this.isJumping ? 0.25 : this.isDucking ? 0.75 : 0.12;
 
-    // 4. Shield aura spin
+    // 4. Shield aura spin & pulse
     if (this.shieldMesh.visible) {
-      this.shieldMesh.rotation.y += 0.08 * (dt * 60);
-      this.shieldMesh.position.y = 1.2 + Math.sin(simTime * 4) * 0.1;
+      this.shieldMesh.rotation.y += 0.05 * (dt * 60);
+      const ring = this.shieldMesh.getObjectByName("shield_energy_ring");
+      if (ring) {
+        ring.rotation.z += 0.12 * (dt * 60);
+        ring.rotation.x = Math.PI / 2 + Math.sin(simTime * 5) * 0.2;
+      }
+      const pulse = 1.0 + Math.sin(simTime * 6) * 0.05;
+      this.shieldMesh.scale.set(pulse, pulse, pulse);
+      this.shieldMesh.position.y = 1.2 + Math.sin(simTime * 4) * 0.08;
+    }
+
+    // 5. Magnet Nazar aura orbital spin & pulse
+    if (this.magnetAuraGroup.visible) {
+      const charm = this.magnetAuraGroup.getObjectByName("orbiting_nazar_charm");
+      if (charm) {
+        const orbitAngle = simTime * 3.8;
+        charm.position.set(
+          Math.cos(orbitAngle) * 0.95,
+          1.25 + Math.sin(simTime * 5) * 0.15,
+          Math.sin(orbitAngle) * 0.95
+        );
+        charm.rotation.y = orbitAngle + Math.PI / 2;
+        charm.rotation.z = Math.sin(simTime * 4) * 0.2;
+      }
+      const groundRing = this.magnetAuraGroup.getObjectByName("magnet_ground_ring");
+      if (groundRing) {
+        groundRing.rotation.z += 0.08 * (dt * 60);
+        const vPulse = 1.0 + Math.sin(simTime * 6) * 0.08;
+        groundRing.scale.set(vPulse, vPulse, vPulse);
+      }
     }
 
     // Shadow scaling

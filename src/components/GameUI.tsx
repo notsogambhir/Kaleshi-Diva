@@ -130,10 +130,10 @@ export const GameUI: React.FC<GameUIProps> = ({
         )}
         {powerups.magnet && (
           <div
-            className="bg-purple-500/80 backdrop-blur-md p-2.5 sm:p-3 rounded-full flex items-center justify-center animate-bounce shadow-[0_0_15px_rgba(168,85,247,0.8)]"
+            className="bg-cyan-600/90 border-2 border-cyan-300 backdrop-blur-md p-2.5 sm:p-3 rounded-full flex items-center justify-center animate-bounce shadow-[0_0_20px_rgba(6,182,212,0.9)] ring-4 ring-cyan-400/40"
             style={{ animationDelay: "100ms" }}
           >
-            <Magnet className="text-white w-5 h-5 sm:w-6 sm:h-6" />
+            <Magnet className="text-white w-5 h-5 sm:w-6 sm:h-6 animate-pulse" />
           </div>
         )}
         {powerups.speed && (

@@ -56,22 +56,58 @@ export class PowerupManager {
     this.container = container;
 
     this.goldMetalMat = registerCurvedMaterial(
-      new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.9, roughness: 0.15 })
+      new THREE.MeshStandardMaterial({
+        color: 0xffd700,
+        metalness: 0.9,
+        roughness: 0.15,
+        emissive: 0x443300,
+        emissiveIntensity: 0.25,
+      })
     );
     this.goldShieldMat = registerCurvedMaterial(
-      new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.8, roughness: 0.2 })
+      new THREE.MeshStandardMaterial({
+        color: 0xffd700,
+        metalness: 0.85,
+        roughness: 0.18,
+        emissive: 0x553300,
+        emissiveIntensity: 0.35,
+      })
     );
     this.darkMetalMat = registerCurvedMaterial(
-      new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.8, roughness: 0.2 })
+      new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.85, roughness: 0.2 })
     );
     this.redSpeedMat = registerCurvedMaterial(
-      new THREE.MeshStandardMaterial({ color: 0xd32f2f, roughness: 0.2, metalness: 0.3 })
+      new THREE.MeshStandardMaterial({
+        color: 0xff3b30,
+        roughness: 0.2,
+        metalness: 0.4,
+        emissive: 0xff1744,
+        emissiveIntensity: 0.45,
+      })
     );
     this.blackMat = registerCurvedMaterial(new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 }));
-    this.whiteMat = registerCurvedMaterial(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 }));
-    this.blueMat = registerCurvedMaterial(new THREE.MeshStandardMaterial({ color: 0x1976d2, roughness: 0.3 }));
-    this.greenDinoMat = registerCurvedMaterial(new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.6 }));
-    this.amberDinoMat = registerCurvedMaterial(new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.4 }));
+    this.whiteMat = registerCurvedMaterial(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 }));
+    this.blueMat = registerCurvedMaterial(
+      new THREE.MeshStandardMaterial({
+        color: 0x0284c7,
+        roughness: 0.25,
+        metalness: 0.3,
+        emissive: 0x0369a1,
+        emissiveIntensity: 0.2,
+      })
+    );
+    this.greenDinoMat = registerCurvedMaterial(
+      new THREE.MeshStandardMaterial({
+        color: 0x22c55e,
+        roughness: 0.5,
+        metalness: 0.2,
+        emissive: 0x15803d,
+        emissiveIntensity: 0.25,
+      })
+    );
+    this.amberDinoMat = registerCurvedMaterial(
+      new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.35, metalness: 0.4 })
+    );
 
     this.glowSpriteMat = registerCurvedMaterial(
       new THREE.SpriteMaterial({

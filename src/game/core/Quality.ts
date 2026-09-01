@@ -8,6 +8,14 @@ export interface QualitySettings {
   maxAnisotropy: number;
   particleBudget: number;
   glowSpritesEnabled: boolean;
+  bloomEnabled: boolean;
+  bloomStrength: number;
+  bloomRadius: number;
+  bloomThreshold: number;
+  postEffectsEnabled: boolean;
+  weatherParticlesEnabled: boolean;
+  normalMapsEnabled: boolean;
+  environmentMapIntensity: number;
 }
 
 export class QualityManager {
@@ -36,18 +44,34 @@ export class QualityManager {
           shadowsEnabled: false,
           shadowMapSize: 512,
           maxAnisotropy: 2,
-          particleBudget: 25,
+          particleBudget: 35,
           glowSpritesEnabled: false,
+          bloomEnabled: false,
+          bloomStrength: 0,
+          bloomRadius: 0,
+          bloomThreshold: 1.0,
+          postEffectsEnabled: false,
+          weatherParticlesEnabled: false,
+          normalMapsEnabled: false,
+          environmentMapIntensity: 0.25,
         };
       case "medium":
         return {
           tier: "medium",
-          pixelRatio: Math.min(dpr, 2),
+          pixelRatio: Math.min(dpr, 1.75),
           shadowsEnabled: true,
           shadowMapSize: 1024,
           maxAnisotropy: 4,
-          particleBudget: 60,
+          particleBudget: 80,
           glowSpritesEnabled: true,
+          bloomEnabled: true,
+          bloomStrength: 0.35,
+          bloomRadius: 0.25,
+          bloomThreshold: 0.94,
+          postEffectsEnabled: true,
+          weatherParticlesEnabled: true,
+          normalMapsEnabled: true,
+          environmentMapIntensity: 0.3,
         };
       case "high":
         return {
@@ -56,8 +80,16 @@ export class QualityManager {
           shadowsEnabled: true,
           shadowMapSize: 2048,
           maxAnisotropy: 16,
-          particleBudget: 120,
+          particleBudget: 150,
           glowSpritesEnabled: true,
+          bloomEnabled: true,
+          bloomStrength: 0.45,
+          bloomRadius: 0.3,
+          bloomThreshold: 0.92,
+          postEffectsEnabled: true,
+          weatherParticlesEnabled: true,
+          normalMapsEnabled: true,
+          environmentMapIntensity: 0.35,
         };
     }
   }

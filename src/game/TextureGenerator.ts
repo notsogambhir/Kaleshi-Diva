@@ -23,6 +23,15 @@ export type TextureType =
   | "bump_road_asphalt"
   | "bump_road_wood"
   | "bump_road_stone"
+  | "normal_road_asphalt"
+  | "normal_road_wood"
+  | "normal_road_stone"
+  | "normal_cobblestone"
+  | "normal_water"
+  | "particle_sparkle"
+  | "particle_star"
+  | "particle_smoke"
+  | "particle_petal"
   | "macro_noise";
 
 export class TextureGenerator {
@@ -50,24 +59,33 @@ export class TextureGenerator {
   ): Promise<void> {
     const allTypes: TextureType[] = [
       "glow_radial",
+      "particle_sparkle",
+      "particle_star",
+      "particle_smoke",
+      "particle_petal",
       "obstacle_chevron",
       "obstacle_duck_arch",
       "dress",
       "dress_dino",
       "road_asphalt",
       "bump_road_asphalt",
+      "normal_road_asphalt",
       "grass",
       "road_wood",
       "bump_road_wood",
+      "normal_road_wood",
       "water",
+      "normal_water",
       "road_dirt",
       "jungle",
       "sky_sunset",
       "road_stone",
       "bump_road_stone",
+      "normal_road_stone",
       "dino_ground",
       "sky_dino",
       "cobblestone",
+      "normal_cobblestone",
       "rose",
       "wood",
       "leaf",
@@ -115,7 +133,174 @@ export class TextureGenerator {
     if (crossesRight && crossesBottom) drawFn(x - sz, y - sz);
   }
 
+  /**
+   * Generates a tangent-space Normal Map by applying a Sobel gradient filter over a heightmap canvas.
+   */
+  private static createNormalMap(
+    drawHeightmap: (cx: CanvasRenderingContext2D, sz: number, scale: number) => void,
+    strength = 2.5
+  ): THREE.Texture {
+    const sz = this.resolution;
+    const cvs = document.createElement("canvas");
+    cvs.width = sz;
+    cvs.height = sz;
+    const cx = cvs.getContext("2d")!;
+    const scale = sz / 512;
+
+    // 1. Draw heightmap (0 = deep recess, 255 = highest peak)
+    drawHeightmap(cx, sz, scale);
+    const src = cx.getImageData(0, 0, sz, sz);
+    const srcData = src.data;
+
+    // 2. Sobel convolution filter for normal vectors
+    const dst = cx.createImageData(sz, sz);
+    const dstData = dst.data;
+
+    const getHeight = (x: number, y: number): number => {
+      const wx = (x + sz) % sz;
+      const wy = (y + sz) % sz;
+      return srcData[(wy * sz + wx) * 4] / 255.0;
+    };
+
+    for (let y = 0; y < sz; y++) {
+      for (let x = 0; x < sz; x++) {
+        const tl = getHeight(x - 1, y - 1);
+        const t = getHeight(x, y - 1);
+        const tr = getHeight(x + 1, y - 1);
+        const l = getHeight(x - 1, y);
+        const r = getHeight(x + 1, y);
+        const bl = getHeight(x - 1, y + 1);
+        const b = getHeight(x, y + 1);
+        const br = getHeight(x + 1, y + 1);
+
+        const dx = (tr + 2.0 * r + br) - (tl + 2.0 * l + bl);
+        const dy = (bl + 2.0 * b + br) - (tl + 2.0 * t + tr);
+        const dz = 1.0 / strength;
+
+        const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        const nx = (-dx / len) * 0.5 + 0.5;
+        const ny = (-dy / len) * 0.5 + 0.5;
+        const nz = (dz / len) * 0.5 + 0.5;
+
+        const idx = (y * sz + x) * 4;
+        dstData[idx] = Math.floor(nx * 255);
+        dstData[idx + 1] = Math.floor(ny * 255);
+        dstData[idx + 2] = Math.floor(nz * 255);
+        dstData[idx + 3] = 255;
+      }
+    }
+
+    cx.putImageData(dst, 0, 0);
+    const tex = new THREE.CanvasTexture(cvs);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.generateMipmaps = true;
+    return tex;
+  }
+
   public static createTexture(type: TextureType): THREE.Texture {
+    if (type === "normal_road_asphalt") {
+      return this.createNormalMap((cx, sz, scale) => {
+        cx.fillStyle = "#808080";
+        cx.fillRect(0, 0, sz, sz);
+        const dots = Math.floor(2500 * scale * scale);
+        for (let i = 0; i < dots; i++) {
+          const val = Math.floor(Math.random() * 80 + 90);
+          cx.fillStyle = `rgb(${val},${val},${val})`;
+          const px = Math.random() * sz;
+          const py = Math.random() * sz;
+          this.drawWrapped(cx, sz, px, py, 2 * scale, (dx, dy) => {
+            cx.fillRect(dx, dy, 2.5 * scale, 2.5 * scale);
+          });
+        }
+      }, 3.0);
+    }
+
+    if (type === "normal_road_wood") {
+      return this.createNormalMap((cx, sz, scale) => {
+        cx.fillStyle = "#a0a0a0";
+        cx.fillRect(0, 0, sz, sz);
+        const step = 32 * scale;
+        for (let y = 0; y < sz; y += step) {
+          // Plank groove (deep black groove)
+          cx.fillStyle = "#000000";
+          cx.fillRect(0, y, sz, 4 * scale);
+          // Plank chamfer bevel
+          cx.fillStyle = "#e0e0e0";
+          cx.fillRect(0, y + 4 * scale, sz, 2 * scale);
+        }
+        // Longitudinal wood grain lines
+        for (let i = 0; i < sz; i += 8 * scale) {
+          cx.fillStyle = Math.random() > 0.5 ? "#707070" : "#c0c0c0";
+          cx.fillRect(i, 0, 1.5 * scale, sz);
+        }
+      }, 4.0);
+    }
+
+    if (type === "normal_road_stone") {
+      return this.createNormalMap((cx, sz, scale) => {
+        cx.fillStyle = "#b0b0b0";
+        cx.fillRect(0, 0, sz, sz);
+        cx.fillStyle = "#000000";
+        const stepY = 64 * scale;
+        const stepX = 128 * scale;
+        for (let y = 0; y < sz; y += stepY) {
+          // Horizontal groove
+          cx.fillRect(0, y, sz, 5 * scale);
+          for (let x = 0; x < sz; x += stepX) {
+            const offsetX = (y / stepY) % 2 === 0 ? 0 : stepX / 2;
+            cx.fillRect((x + offsetX) % sz, y, 5 * scale, stepY);
+          }
+        }
+      }, 5.0);
+    }
+
+    if (type === "normal_cobblestone") {
+      return this.createNormalMap((cx, sz, scale) => {
+        cx.fillStyle = "#101010"; // deep recessed grout
+        cx.fillRect(0, 0, sz, sz);
+        for (let i = 0; i < 40; i++) {
+          const x = Math.random() * sz;
+          const y = Math.random() * sz;
+          const w = (35 + Math.random() * 30) * scale;
+          const h = (25 + Math.random() * 25) * scale;
+          this.drawWrapped(cx, sz, x, y, Math.max(w, h), (dx, dy) => {
+            const grad = cx.createRadialGradient(dx + w / 2, dy + h / 2, 0, dx + w / 2, dy + h / 2, Math.max(w, h) / 2);
+            grad.addColorStop(0, "#ffffff");
+            grad.addColorStop(0.8, "#a0a0a0");
+            grad.addColorStop(1, "#202020");
+            cx.fillStyle = grad;
+            cx.beginPath();
+            cx.roundRect(dx, dy, w, h, 8 * scale);
+            cx.fill();
+          });
+        }
+      }, 4.5);
+    }
+
+    if (type === "normal_water") {
+      return this.createNormalMap((cx, sz, scale) => {
+        cx.fillStyle = "#808080";
+        cx.fillRect(0, 0, sz, sz);
+        // Gentle, smooth wave harmonics
+        for (let i = 0; i < 20; i++) {
+          const x = Math.random() * sz;
+          const y = Math.random() * sz;
+          const rad = (40 + Math.random() * 60) * scale;
+          this.drawWrapped(cx, sz, x, y, rad, (dx, dy) => {
+            const grad = cx.createRadialGradient(dx, dy, 0, dx, dy, rad);
+            grad.addColorStop(0, "#a0a0a0");
+            grad.addColorStop(0.5, "#757575");
+            grad.addColorStop(1, "#808080");
+            cx.fillStyle = grad;
+            cx.beginPath();
+            cx.arc(dx, dy, rad, 0, Math.PI * 2);
+            cx.fill();
+          });
+        }
+      }, 1.2);
+    }
+
     const cvs = document.createElement("canvas");
     const sz = this.resolution;
     cvs.width = sz;
@@ -123,7 +308,80 @@ export class TextureGenerator {
     const cx = cvs.getContext("2d")!;
     const scale = sz / 512;
 
-    if (type === "glow_radial") {
+    if (type === "particle_sparkle") {
+      const center = sz / 2;
+      const grad = cx.createRadialGradient(center, center, 0, center, center, center * 0.9);
+      grad.addColorStop(0, "rgba(255, 255, 255, 1.0)");
+      grad.addColorStop(0.3, "rgba(255, 240, 150, 0.8)");
+      grad.addColorStop(0.7, "rgba(255, 180, 50, 0.2)");
+      grad.addColorStop(1, "rgba(255, 150, 0, 0.0)");
+      cx.fillStyle = grad;
+      cx.fillRect(0, 0, sz, sz);
+
+      // 4-point diamond cross
+      cx.fillStyle = "#ffffff";
+      cx.beginPath();
+      cx.moveTo(center, 0);
+      cx.lineTo(center + 12 * scale, center - 12 * scale);
+      cx.lineTo(sz, center);
+      cx.lineTo(center + 12 * scale, center + 12 * scale);
+      cx.lineTo(center, sz);
+      cx.lineTo(center - 12 * scale, center + 12 * scale);
+      cx.lineTo(0, center);
+      cx.lineTo(center - 12 * scale, center - 12 * scale);
+      cx.closePath();
+      cx.fill();
+    } else if (type === "particle_star") {
+      const center = sz / 2;
+      cx.fillStyle = "rgba(255, 215, 0, 1.0)";
+      cx.beginPath();
+      const spikes = 5;
+      const outerRadius = sz * 0.45;
+      const innerRadius = sz * 0.2;
+      let rot = (Math.PI / 2) * 3;
+      let x = center;
+      let y = center;
+      const step = Math.PI / spikes;
+
+      cx.moveTo(center, center - outerRadius);
+      for (let i = 0; i < spikes; i++) {
+        x = center + Math.cos(rot) * outerRadius;
+        y = center + Math.sin(rot) * outerRadius;
+        cx.lineTo(x, y);
+        rot += step;
+
+        x = center + Math.cos(rot) * innerRadius;
+        y = center + Math.sin(rot) * innerRadius;
+        cx.lineTo(x, y);
+        rot += step;
+      }
+      cx.lineTo(center, center - outerRadius);
+      cx.closePath();
+      cx.fill();
+      cx.strokeStyle = "#ffffff";
+      cx.lineWidth = 8 * scale;
+      cx.stroke();
+    } else if (type === "particle_smoke") {
+      const center = sz / 2;
+      const grad = cx.createRadialGradient(center, center, 0, center, center, center * 0.85);
+      grad.addColorStop(0, "rgba(230, 230, 230, 0.85)");
+      grad.addColorStop(0.5, "rgba(180, 180, 180, 0.45)");
+      grad.addColorStop(0.8, "rgba(140, 140, 140, 0.15)");
+      grad.addColorStop(1, "rgba(100, 100, 100, 0.0)");
+      cx.fillStyle = grad;
+      cx.beginPath();
+      cx.arc(center, center, center * 0.85, 0, Math.PI * 2);
+      cx.fill();
+    } else if (type === "particle_petal") {
+      const center = sz / 2;
+      cx.fillStyle = "rgba(244, 114, 182, 0.9)"; // Soft rose/cherry blossom pink
+      cx.beginPath();
+      cx.moveTo(center, sz * 0.1);
+      cx.bezierCurveTo(sz * 0.8, sz * 0.2, sz * 0.9, sz * 0.7, center, sz * 0.9);
+      cx.bezierCurveTo(sz * 0.1, sz * 0.7, sz * 0.2, sz * 0.2, center, sz * 0.1);
+      cx.closePath();
+      cx.fill();
+    } else if (type === "glow_radial") {
       const center = sz / 2;
       const grad = cx.createRadialGradient(center, center, 0, center, center, center);
       grad.addColorStop(0, "rgba(255, 255, 255, 1.0)");
@@ -287,17 +545,17 @@ export class TextureGenerator {
         });
       }
     } else if (type === "water") {
-      // Seamless crystal lake base (uniform base tone with subtle depth, no linear vertical banding)
-      cx.fillStyle = "#0096c7";
+      // Seamless deep azure lake base with vibrant translucent ripples
+      cx.fillStyle = "#0284c7";
       cx.fillRect(0, 0, sz, sz);
 
       // Stylized rounded ripple bars with wrapped drawing
-      const rippleRows = Math.floor(24 * scale * scale);
+      const rippleRows = Math.floor(28 * scale * scale);
       for (let i = 0; i < rippleRows; i++) {
-        const col = i % 2 === 0 ? "rgba(202, 240, 248, 0.4)" : "rgba(144, 224, 239, 0.3)";
+        const col = i % 2 === 0 ? "rgba(56, 189, 248, 0.45)" : "rgba(125, 211, 252, 0.3)";
         const rx = Math.random() * sz;
         const ry = (i / rippleRows) * sz;
-        const rw = (40 + Math.random() * 60) * scale;
+        const rw = (45 + Math.random() * 65) * scale;
         const rh = 4 * scale;
         this.drawWrapped(cx, sz, rx, ry, rw, (dx, dy) => {
           cx.fillStyle = col;

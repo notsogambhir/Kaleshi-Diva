@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { GameLoop } from "./core/Loop";
-import { QualityManager, QualitySettings } from "./core/Quality";
+import { QualityManager, QualitySettings, QualityTier } from "./core/Quality";
 import { HapticsManager } from "./core/Haptics";
 import { Track } from "./world/Track";
 import { Sky } from "./world/Sky";
@@ -16,6 +16,8 @@ import { EffectsSystem } from "./systems/Effects";
 import { AudioManager } from "./AudioManager";
 import { TextureGenerator } from "./TextureGenerator";
 import { BiomeType, BIOMES } from "./world/Biomes";
+import { PostProcessingPipeline } from "./core/PostProcessingPipeline";
+import { EnvironmentMapGenerator } from "./core/EnvironmentMapGenerator";
 
 export class GameEngine {
   private canvas: HTMLCanvasElement;
@@ -25,6 +27,7 @@ export class GameEngine {
   private loop: GameLoop;
   private quality: QualitySettings;
   private abortController: AbortController;
+  private postPipeline: PostProcessingPipeline;
 
   // Unified Scrolling World Group for sub-tick visual render interpolation
   private scrollingWorldGroup: THREE.Group;
@@ -86,6 +89,9 @@ export class GameEngine {
   private magnetTimer = 0;
   private speedTimer = 0;
   private dinoTimer = 0;
+  private lastSunflowerCollectTime = 0;
+  private consecutiveCollectChain = 0;
+  private lastMagneticPulseTime = 0;
 
   // Scoped boost landing grace period
   private boostLandingGrace = 0;
@@ -121,7 +127,7 @@ export class GameEngine {
     });
     this.renderer.setPixelRatio(this.quality.pixelRatio);
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.toneMapping = THREE.NoToneMapping;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
 
     if (this.quality.shadowsEnabled) {
@@ -142,8 +148,9 @@ export class GameEngine {
     this.scrollingWorldGroup = new THREE.Group();
     this.scene.add(this.scrollingWorldGroup);
 
-    // 4. Initialize Lighting
+    // 4. Initialize Lighting & Environment Map
     this.initLighting();
+    this.updateEnvironmentMap("park");
 
     // 5. Initialize Subsystems & Entities with Hardware-Queried Max Anisotropy
     const hardwareMaxAnisotropy = this.renderer.capabilities.getMaxAnisotropy();
@@ -159,19 +166,28 @@ export class GameEngine {
     this.powerups = new PowerupManager(this.scrollingWorldGroup);
     this.spawner = new SpawnerSystem();
     this.effects = new EffectsSystem(this.scene, this.camera, this.quality.particleBudget);
+    this.effects.setWeatherEnabled(this.quality.weatherParticlesEnabled);
+
+    // 6. Post-Processing Pipeline
+    this.postPipeline = new PostProcessingPipeline(
+      this.renderer,
+      this.scene,
+      this.camera,
+      this.quality
+    );
 
     this.spawner.onBiomeChange = (newBiome) => this.startBiomeTransition(newBiome);
 
-    // 6. Pre-populate initial scenery
+    // 7. Pre-populate initial scenery
     for (let i = 0; i < 18; i++) {
       this.scenery.spawn(-i * 10, "park");
     }
 
-    // 7. Setup Inputs & Event Listeners
+    // 8. Setup Inputs & Event Listeners
     this.setupInputs();
     this.setupLifecycleListeners();
 
-    // 8. Setup Game Loop with render interpolation
+    // 9. Setup Game Loop with render interpolation
     this.loop = new GameLoop(
       (dt, simTime) => this.update(dt, simTime),
       (alpha) => this.render(alpha)
@@ -180,13 +196,13 @@ export class GameEngine {
   }
 
   private initLighting(): void {
-    this.ambientLight = new THREE.AmbientLight(0xfff8f0, 0.85);
+    this.ambientLight = new THREE.AmbientLight(0xfff8f0, 0.55);
     this.scene.add(this.ambientLight);
 
-    this.hemiLight = new THREE.HemisphereLight(0x90caf9, 0xffe0b2, 0.4);
+    this.hemiLight = new THREE.HemisphereLight(0x90caf9, 0xffe0b2, 0.35);
     this.scene.add(this.hemiLight);
 
-    this.dirLight = new THREE.DirectionalLight(0xfffbeb, 0.85);
+    this.dirLight = new THREE.DirectionalLight(0xfffaed, 1.1);
     this.dirLight.position.set(12, 24, 12);
 
     if (this.quality.shadowsEnabled) {
@@ -197,9 +213,9 @@ export class GameEngine {
       this.dirLight.shadow.camera.right = 8;
       this.dirLight.shadow.camera.top = 10;
       this.dirLight.shadow.camera.bottom = -10;
-      this.dirLight.shadow.camera.near = 8;
-      this.dirLight.shadow.camera.far = 55;
-      this.dirLight.shadow.bias = -0.0004;
+      this.dirLight.shadow.camera.near = 6;
+      this.dirLight.shadow.camera.far = 58;
+      this.dirLight.shadow.bias = -0.00015;
     }
     this.scene.add(this.dirLight);
   }
@@ -285,6 +301,7 @@ export class GameEngine {
         this.camera.aspect = window.innerWidth / window.innerHeight;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.postPipeline.setSize(window.innerWidth, window.innerHeight);
       },
       { signal }
     );
@@ -427,10 +444,26 @@ export class GameEngine {
     this.notifyUI();
   }
 
+  public setQualityTier(tier: QualityTier): void {
+    this.quality = QualityManager.getSettingsForTier(tier);
+    this.renderer.setPixelRatio(this.quality.pixelRatio);
+    this.postPipeline.setQuality(this.quality, window.innerWidth, window.innerHeight);
+    this.effects.setParticleBudget(this.quality.particleBudget);
+    this.effects.setWeatherEnabled(this.quality.weatherParticlesEnabled);
+    this.scene.environmentIntensity = this.quality.environmentMapIntensity;
+  }
+
+  private updateEnvironmentMap(biome: BiomeType): void {
+    this.scene.environment = EnvironmentMapGenerator.getEnvironmentMap(this.renderer, biome);
+    this.scene.environmentIntensity = this.quality.environmentMapIntensity;
+  }
+
   private startBiomeTransition(newBiome: BiomeType): void {
     this.targetBiome = newBiome;
     this.biomeTransitionProgress = 0;
     this.audio.setBiome(newBiome);
+    this.effects.setBiome(newBiome);
+    this.updateEnvironmentMap(newBiome);
   }
 
   private setBiomeInstant(biome: BiomeType): void {
@@ -441,6 +474,8 @@ export class GameEngine {
     const config = BIOMES[biome];
     this.track.setBiome(biome);
     this.sky.setBiome(biome);
+    this.effects.setBiome(biome);
+    this.updateEnvironmentMap(biome);
 
     if (this.scene.fog instanceof THREE.Fog) {
       this.scene.fog.color.setHex(config.fogColor);
@@ -504,6 +539,8 @@ export class GameEngine {
       this.currentBiome = this.targetBiome;
       this.track.setBiome(this.targetBiome);
       this.sky.setBiome(this.targetBiome);
+      this.effects.setBiome(this.targetBiome);
+      this.updateEnvironmentMap(this.targetBiome);
     }
   }
 
@@ -590,8 +627,17 @@ export class GameEngine {
     // 2. Update Entities
     this.player.isBoosting = isDashing;
     this.player.setDinoMount(isRiding);
-    this.player.update(effectiveDt, simTime);
     const magnetActive = this.magnetTimer > 0 || isRiding;
+    this.player.setMagnet(magnetActive);
+    this.player.update(effectiveDt, simTime);
+
+    if (magnetActive && this.isPlaying) {
+      if (simTime - this.lastMagneticPulseTime > 1.4) {
+        this.lastMagneticPulseTime = simTime;
+        this.effects.emitMagneticPulse(this.player.simPosition);
+      }
+    }
+
     this.collectibles.update(effectiveSpeed, effectiveDt, simTime, magnetActive, this.player.simPosition);
     this.obstacles.update(effectiveSpeed, effectiveDt);
     this.powerups.update(effectiveSpeed, effectiveDt, simTime);
@@ -646,13 +692,22 @@ export class GameEngine {
       if (collision.collectedSunflowers.length > 0) {
         collision.collectedSunflowers.sort((a, b) => b - a);
 
+        const now = performance.now();
+        if (now - this.lastSunflowerCollectTime < 380) {
+          this.consecutiveCollectChain++;
+        } else {
+          this.consecutiveCollectChain = 0;
+        }
+        this.lastSunflowerCollectTime = now;
+
         for (const idx of collision.collectedSunflowers) {
           const item = this.collectibles.activeItems[idx];
           if (item && item.active) {
             item.active = false;
-            this.effects.emit(item.mesh.position, 0xffd700, 7, "confetti");
-            this.audio.collect();
-            HapticsManager.light();
+            this.effects.emit(item.mesh.position, 0xffd700, 7, "sparkle");
+            if (magnetActive) {
+              this.effects.emitMagneticStream(item.mesh.position, this.player.simPosition);
+            }
             this.collectibles.removeAt(idx);
 
             this.combo++;
@@ -663,6 +718,8 @@ export class GameEngine {
             this.pursuer.chaseDistance = Math.min(8.5, this.pursuer.chaseDistance + 0.18);
           }
         }
+        this.audio.collect(this.consecutiveCollectChain);
+        HapticsManager.light();
         this.notifyUI();
       }
 
@@ -690,6 +747,7 @@ export class GameEngine {
             this.player.setShield(true);
           } else if (pwr.type === "magnet") {
             this.magnetTimer = 10;
+            this.audio.magnetActivate();
           } else if (pwr.type === "speed") {
             this.speedTimer = 6;
             this.effects.setSpeedBoost(true, 0xff4444);
@@ -780,6 +838,15 @@ export class GameEngine {
     const targetCamX = this.player.simPosition.x * 0.35;
     this.camFollowTarget.x += (targetCamX - this.camFollowTarget.x) * 0.1 * (effectiveDt * 60);
     this.camFollowTarget.y = THREE.MathUtils.lerp(this.camFollowTarget.y, 5, 0.1 * (effectiveDt * 60));
+
+    // 7. Update Post-Processing Screen FX
+    if (this.postPipeline.isEnabled) {
+      this.postPipeline.setSpeedBlur(isDashing ? 0.8 : isRiding ? 0.45 : 0.0);
+      this.postPipeline.setChromaticAberration(
+        this.slowMoTimer > 0 ? 0.75 : this.isCaughtAnimation ? 0.6 : 0.0
+      );
+      this.postPipeline.setVignette(isDashing ? 0.55 : 0.28);
+    }
   }
 
   // Pure Visual Fixed-Tick Render Interpolation (Fixes defect #12)
@@ -801,13 +868,20 @@ export class GameEngine {
       this.interpolatedCam.z + shake.z
     );
 
-    this.renderer.render(this.scene, this.camera);
+    if (this.postPipeline.isEnabled) {
+      this.postPipeline.render();
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
   }
 
   public destroy(): void {
     this.loop.stop();
     this.abortController.abort();
     this.audio.stopMusic();
+
+    this.postPipeline.dispose();
+    EnvironmentMapGenerator.dispose();
 
     this.track.dispose();
     this.sky.dispose();
