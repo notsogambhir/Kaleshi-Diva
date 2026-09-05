@@ -22,6 +22,7 @@ export type TextureType =
   | "speech_bubble_suno"
   | "speech_bubble_wait"
   | "speech_bubble_flowers"
+  | "speech_bubble_yawrrrrr"
   | "wood"
   | "leaf"
   | "glow_radial"
@@ -85,6 +86,7 @@ export class TextureGenerator {
       "speech_bubble_suno",
       "speech_bubble_wait",
       "speech_bubble_flowers",
+      "speech_bubble_yawrrrrr",
       "road_asphalt",
       "bump_road_asphalt",
       "normal_road_asphalt",
@@ -1046,7 +1048,8 @@ export class TextureGenerator {
     } else if (
       type === "speech_bubble_suno" ||
       type === "speech_bubble_wait" ||
-      type === "speech_bubble_flowers"
+      type === "speech_bubble_flowers" ||
+      type === "speech_bubble_yawrrrrr"
     ) {
       // Stylized Comic Speech Bubble
       const pad = 18 * scale;
@@ -1112,7 +1115,7 @@ export class TextureGenerator {
         cx.fillStyle = "#2563eb";
         cx.font = `800 ${32 * scale}px system-ui, -apple-system, sans-serif`;
         cx.fillText("Ek minute suno!", sz * 0.5, pad + bh * 0.72);
-      } else {
+      } else if (type === "speech_bubble_flowers") {
         cx.fillStyle = "#0f172a";
         cx.font = `900 ${48 * scale}px "Arial Black", Impact, sans-serif`;
         cx.fillText("Got flowers! 🌻", sz * 0.5, pad + bh * 0.38);
@@ -1120,6 +1123,14 @@ export class TextureGenerator {
         cx.fillStyle = "#d97706";
         cx.font = `800 ${30 * scale}px system-ui, -apple-system, sans-serif`;
         cx.fillText("Special for you 💖", sz * 0.5, pad + bh * 0.72);
+      } else {
+        cx.fillStyle = "#0f172a";
+        cx.font = `900 ${50 * scale}px "Arial Black", Impact, sans-serif`;
+        cx.fillText("Yawrrrrr 😭", sz * 0.5, pad + bh * 0.38);
+
+        cx.fillStyle = "#db2777";
+        cx.font = `800 ${32 * scale}px system-ui, -apple-system, sans-serif`;
+        cx.fillText("Plezzzzzz", sz * 0.5, pad + bh * 0.72);
       }
     } else if (type === "wood") {
       cx.fillStyle = "#8d6e63";

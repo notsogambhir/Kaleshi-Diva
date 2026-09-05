@@ -46,7 +46,7 @@ export const BIOMES: Record<BiomeType, BiomeConfig> = {
   },
   lake: {
     id: "lake",
-    name: "Lotus Lake",
+    name: "Sukhna Lake",
     groundTexture: "water",
     roadTexture: "road_wood",
     fogColor: 0x7dd3fc,

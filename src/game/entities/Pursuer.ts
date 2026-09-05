@@ -22,6 +22,12 @@ const SPEECH_PHRASES: Record<string, { title: string; subtitle: string; emoji: s
     emoji: "🌻",
     color: "#d97706",
   },
+  speech_bubble_yawrrrrr: {
+    title: "Yawrrrrr",
+    subtitle: "Plezzzzzz",
+    emoji: "😭",
+    color: "#db2777",
+  },
 };
 
 export class Pursuer {
@@ -460,7 +466,7 @@ export class Pursuer {
 
     // Instantly trigger speech bubble & display latch
     this.speechDisplayTimer = 3.5;
-    const phrases: TextureType[] = ["speech_bubble_suno", "speech_bubble_wait"];
+    const phrases: TextureType[] = ["speech_bubble_suno", "speech_bubble_wait", "speech_bubble_yawrrrrr"];
     this.currentSpeechType = phrases[Math.floor(Math.random() * phrases.length)];
 
     return this.checkCaught();
@@ -574,7 +580,7 @@ export class Pursuer {
       this.speechTimer += dt;
       if (this.speechTimer > 3.2) {
         this.speechTimer = 0;
-        const phrases: TextureType[] = ["speech_bubble_suno", "speech_bubble_wait", "speech_bubble_flowers"];
+        const phrases: TextureType[] = ["speech_bubble_suno", "speech_bubble_wait", "speech_bubble_flowers", "speech_bubble_yawrrrrr"];
         const nextPhrase = phrases[Math.floor(Math.random() * phrases.length)];
         if (nextPhrase !== this.currentSpeechType) {
           this.currentSpeechType = nextPhrase;

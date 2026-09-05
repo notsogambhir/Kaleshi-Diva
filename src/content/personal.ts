@@ -73,5 +73,9 @@ export const PERSONAL_CONTENT = {
       quote: "Best runner in the universe, my forever diva! 🌻",
       author: "Gambhir",
     },
+    {
+      quote: "48 minutes late but would always reach",
+      author: "Gambhir",
+    },
   ],
 };
